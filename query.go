@@ -8,6 +8,21 @@ import (
 
 var ErrSessionClosed = errors.New("sql: Session has already been closed")
 
+type Scan func(...interface{}) error
+
+type Scanner func(Scan) ([]interface{}, error)
+
+type QueryResult struct {
+	Rows []Row
+	Err  error
+}
+
+type ExecResult struct {
+	LastInsertId int64
+	RowsAffected int64
+	Err          error
+}
+
 type querier interface {
 	Query(string, ...interface{}) (*sql.Rows, error)
 }

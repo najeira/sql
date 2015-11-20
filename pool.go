@@ -11,7 +11,7 @@ var (
 	boolPool       sync.Pool
 	valuesPoolPool sync.Pool
 
-	poolCounter  *counter
+	poolCounter *counter
 )
 
 func init() {
