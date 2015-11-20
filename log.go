@@ -1,12 +1,12 @@
 package sql
 
 import (
-	logging "github.com/najeira/goutils/logv"
+	log "github.com/najeira/goutils/logv"
 )
 
-var logger logging.Logger
+var logger log.Logger
 
-func SetLogger(l logging.Logger) {
+func SetLogger(l log.Logger) {
 	logger = l
 }
 
