@@ -2,8 +2,11 @@ package sql
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 )
+
+var ErrSessionClosed = errors.New("sql: Session has already been closed")
 
 type querier interface {
 	Query(string, ...interface{}) (*sql.Rows, error)
@@ -13,7 +16,11 @@ type executor interface {
 	Exec(string, ...interface{}) (sql.Result, error)
 }
 
-func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, error) {
+func sqlQuery(svc querier, s Scanner, q string, args ...interface{}) ([]Row, error) {
+	if svc == nil {
+		return nil, ErrSessionClosed
+	}
+
 	defer Metrics.Measure(time.Now(), q)
 
 	args = flattenArgs(args)
@@ -24,7 +31,7 @@ func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, erro
 
 	Metrics.MarkQueries(1)
 
-	rows, err := sq.Query(q, args...)
+	rows, err := svc.Query(q, args...)
 	if err != nil {
 		if logv(logErr) {
 			logln(err)
@@ -72,16 +79,20 @@ func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, erro
 	return rets, nil
 }
 
-func sqlQueryAsync(sq querier, s Scanner, q string, args ...interface{}) chan QueryResult {
+func sqlQueryAsync(svc querier, s Scanner, q string, args ...interface{}) chan QueryResult {
 	ch := make(chan QueryResult)
 	go func() {
-		rows, err := sqlQuery(sq, s, q, args...)
+		rows, err := sqlQuery(svc, s, q, args...)
 		ch <- QueryResult{Rows: rows, Err: err}
 	}()
 	return ch
 }
 
-func sqlExec(sq executor, q string, args ...interface{}) (int64, int64, error) {
+func sqlExec(svc executor, q string, args ...interface{}) (int64, int64, error) {
+	if svc == nil {
+		return 0, 0, ErrSessionClosed
+	}
+
 	defer Metrics.Measure(time.Now(), q)
 
 	args = flattenArgs(args)
@@ -92,7 +103,7 @@ func sqlExec(sq executor, q string, args ...interface{}) (int64, int64, error) {
 
 	Metrics.MarkExecutes(1)
 
-	res, err := sq.Exec(q, args...)
+	res, err := svc.Exec(q, args...)
 	if err != nil {
 		if logv(logErr) {
 			logln(err)
@@ -119,10 +130,10 @@ func sqlExec(sq executor, q string, args ...interface{}) (int64, int64, error) {
 	return i, n, nil
 }
 
-func sqlExecAsync(sq executor, q string, args ...interface{}) chan ExecResult {
+func sqlExecAsync(svc executor, q string, args ...interface{}) chan ExecResult {
 	ch := make(chan ExecResult)
 	go func() {
-		i, n, err := sqlExec(sq, q, args...)
+		i, n, err := sqlExec(svc, q, args...)
 		ch <- ExecResult{LastInsertId: i, RowsAffected: n, Err: err}
 	}()
 	return ch

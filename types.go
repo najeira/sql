@@ -4,12 +4,11 @@ type Scan func(...interface{}) error
 
 type Scanner func(Scan) ([]interface{}, error)
 
-type DB interface {
-	Query(Scanner, string, ...interface{}) ([]Row, error)
-	QueryAsync(Scanner, string, ...interface{}) chan QueryResult
-	Exec(string, ...interface{}) (int64, int64, error)
-	ExecAsync(string, ...interface{}) chan ExecResult
-	RunInTx(func(DB) error) error
+type Valuer interface {
+	String() *NullString
+	Int64() *NullInt64
+	Float64() *NullFloat64
+	Bool() *NullBool
 }
 
 type QueryResult struct {
