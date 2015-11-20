@@ -2,7 +2,6 @@ package sql
 
 import (
 	"database/sql"
-	"time"
 
 	log "github.com/najeira/goutils/logv"
 	"github.com/najeira/goutils/maputil"
@@ -14,25 +13,6 @@ func Open(driver, dsn string) (DB, error) {
 		return nil, err
 	}
 	return &Db{sqlDB}, nil
-}
-
-type Querier interface {
-	Query(string, ...interface{}) (*sql.Rows, error)
-}
-
-type Executor interface {
-	Exec(string, ...interface{}) (sql.Result, error)
-}
-
-type Scan func(...interface{}) error
-type Scanner func(Scan) ([]interface{}, error)
-
-type DB interface {
-	Query(Scanner, string, ...interface{}) ([]Row, error)
-	QueryAsync(Scanner, string, ...interface{}) chan QueryResult
-	Exec(string, ...interface{}) (int64, int64, error)
-	ExecAsync(string, ...interface{}) chan ExecResult
-	RunInTx(func(DB) error) error
 }
 
 type Db struct {
@@ -112,145 +92,6 @@ func (t *Tx) ExecAsync(q string, args ...interface{}) chan ExecResult {
 
 func (t *Tx) RunInTx(f func(DB) error) error {
 	return f(t)
-}
-
-func sqlQuery(sq Querier, s Scanner, q string, args ...interface{}) ([]Row, error) {
-	defer Metrics.Measure(time.Now(), q)
-
-	args = flattenArgs(args)
-
-	if logv(log.Debug) {
-		logf("%s %v", q, args)
-	}
-
-	Metrics.MarkQueries(1)
-
-	rows, err := sq.Query(q, args...)
-	if err != nil {
-		if logv(log.Err) {
-			logln(err)
-		}
-		return nil, err
-	}
-	defer rows.Close()
-
-	columns, err := rows.Columns()
-	if err != nil {
-		if logv(log.Err) {
-			logln(err)
-		}
-		return nil, err
-	}
-
-	rets := make([]Row, 0)
-
-	for rows.Next() {
-		values, err := s(rows.Scan)
-		if err != nil {
-			if logv(log.Err) {
-				logln(err)
-			}
-			return nil, err
-		}
-
-		ret := make(Row)
-		for i, column := range columns {
-			ret[column] = values[i]
-		}
-		rets = append(rets, ret)
-	}
-
-	Metrics.MarkRows(len(rets))
-
-	if logv(log.Debug) {
-		logf("%d rows", len(rets))
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return rets, nil
-}
-
-type QueryResult struct {
-	Rows []Row
-	Err  error
-}
-
-func sqlQueryAsync(sq Querier, s Scanner, q string, args ...interface{}) chan QueryResult {
-	ch := make(chan QueryResult)
-	go func() {
-		rows, err := sqlQuery(sq, s, q, args...)
-		ch <- QueryResult{Rows: rows, Err: err}
-	}()
-	return ch
-}
-
-func sqlExec(sq Executor, q string, args ...interface{}) (int64, int64, error) {
-	defer Metrics.Measure(time.Now(), q)
-
-	args = flattenArgs(args)
-
-	if logv(log.Debug) {
-		logf("%s %v", q, args)
-	}
-
-	Metrics.MarkExecutes(1)
-
-	res, err := sq.Exec(q, args...)
-	if err != nil {
-		if logv(log.Err) {
-			logln(err)
-		}
-		return 0, 0, err
-	}
-
-	i, err := res.LastInsertId()
-	if err != nil {
-		if logv(log.Warn) {
-			logln(err)
-		}
-	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		if logv(log.Warn) {
-			logln(err)
-		}
-	}
-
-	Metrics.MarkAffects(int(n))
-
-	return i, n, nil
-}
-
-type ExecResult struct {
-	LastInsertId int64
-	RowsAffected int64
-	Err          error
-}
-
-func sqlExecAsync(sq Executor, q string, args ...interface{}) chan ExecResult {
-	ch := make(chan ExecResult)
-	go func() {
-		i, n, err := sqlExec(sq, q, args...)
-		ch <- ExecResult{LastInsertId: i, RowsAffected: n, Err: err}
-	}()
-	return ch
-}
-
-func flattenArgs(args ...interface{}) []interface{} {
-	rets := make([]interface{}, 0, len(args))
-	for _, arg := range args {
-		switch v := arg.(type) {
-		case []interface{}:
-			rets = append(rets, v...)
-		default:
-			rets = append(rets, v)
-		}
-	}
-	return rets
 }
 
 func Placeholders(num int) string {
