@@ -3,8 +3,6 @@ package sql
 import (
 	"database/sql"
 	"time"
-
-	log "github.com/najeira/goutils/logv"
 )
 
 type querier interface {
@@ -20,7 +18,7 @@ func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, erro
 
 	args = flattenArgs(args)
 
-	if logv(log.Debug) {
+	if logv(logDebug) {
 		logf("%s %v", q, args)
 	}
 
@@ -28,7 +26,7 @@ func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, erro
 
 	rows, err := sq.Query(q, args...)
 	if err != nil {
-		if logv(log.Err) {
+		if logv(logErr) {
 			logln(err)
 		}
 		return nil, err
@@ -37,7 +35,7 @@ func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, erro
 
 	columns, err := rows.Columns()
 	if err != nil {
-		if logv(log.Err) {
+		if logv(logErr) {
 			logln(err)
 		}
 		return nil, err
@@ -48,7 +46,7 @@ func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, erro
 	for rows.Next() {
 		values, err := s(rows.Scan)
 		if err != nil {
-			if logv(log.Err) {
+			if logv(logErr) {
 				logln(err)
 			}
 			return nil, err
@@ -63,7 +61,7 @@ func sqlQuery(sq querier, s Scanner, q string, args ...interface{}) ([]Row, erro
 
 	Metrics.MarkRows(len(rets))
 
-	if logv(log.Debug) {
+	if logv(logDebug) {
 		logf("%d rows", len(rets))
 	}
 
@@ -88,7 +86,7 @@ func sqlExec(sq executor, q string, args ...interface{}) (int64, int64, error) {
 
 	args = flattenArgs(args)
 
-	if logv(log.Debug) {
+	if logv(logDebug) {
 		logf("%s %v", q, args)
 	}
 
@@ -96,7 +94,7 @@ func sqlExec(sq executor, q string, args ...interface{}) (int64, int64, error) {
 
 	res, err := sq.Exec(q, args...)
 	if err != nil {
-		if logv(log.Err) {
+		if logv(logErr) {
 			logln(err)
 		}
 		return 0, 0, err
@@ -104,14 +102,14 @@ func sqlExec(sq executor, q string, args ...interface{}) (int64, int64, error) {
 
 	i, err := res.LastInsertId()
 	if err != nil {
-		if logv(log.Warn) {
+		if logv(logWarn) {
 			logln(err)
 		}
 	}
 
 	n, err := res.RowsAffected()
 	if err != nil {
-		if logv(log.Warn) {
+		if logv(logWarn) {
 			logln(err)
 		}
 	}

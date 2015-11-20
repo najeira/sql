@@ -4,6 +4,15 @@ import (
 	log "github.com/najeira/goutils/logv"
 )
 
+const (
+	logTrace = log.Trace
+	logDebug = log.Debug
+	logInfo  = log.Info
+	logWarn  = log.Warn
+	logErr   = log.Err
+	logFatal = log.Fatal
+)
+
 var logger log.Logger
 
 func SetLogger(l log.Logger) {

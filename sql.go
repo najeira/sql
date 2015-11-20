@@ -2,8 +2,6 @@ package sql
 
 import (
 	"database/sql"
-
-	log "github.com/najeira/goutils/logv"
 )
 
 func Open(driver, dsn string) (DB, error) {
@@ -49,18 +47,18 @@ func (d *Db) RunInTx(f func(DB) error) error {
 	if err != nil {
 		return err
 	}
-	if logv(log.Debug) {
+	if logv(logDebug) {
 		logln("BEGIN")
 	}
 	err = f(tx)
 	if err != nil {
 		tx.Rollback()
-		if logv(log.Debug) {
+		if logv(logDebug) {
 			logln("ROLLBACK")
 		}
 	} else {
 		tx.Commit()
-		if logv(log.Debug) {
+		if logv(logDebug) {
 			logln("COMMIT")
 		}
 	}
