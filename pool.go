@@ -2,8 +2,6 @@ package sql
 
 import (
 	"sync"
-
-	metrics "github.com/rcrowley/go-metrics"
 )
 
 var (
@@ -13,11 +11,11 @@ var (
 	boolPool       sync.Pool
 	valuesPoolPool sync.Pool
 
-	poolCounter metrics.Counter
+	poolCounter  *counter
 )
 
 func init() {
-	poolCounter = metrics.NewCounter()
+	poolCounter = &counter{}
 }
 
 type valuesPool struct {
