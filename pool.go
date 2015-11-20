@@ -30,7 +30,7 @@ func getValuesPool() *valuesPool {
 		return v.(*valuesPool)
 	}
 	return &valuesPool{
-		values: make([]interface{}, 1024),
+		values: make([]interface{}, 0, 1024),
 	}
 }
 
@@ -58,16 +58,17 @@ func (p *valuesPool) Bool() *NullBool {
 	return v
 }
 
-func (p *valuesPool) Close() {
-	for _, v := range p.values {
-		poolValue(v)
-	}
+func (p *valuesPool) Close() error {
 	if logv(logDebug) && len(p.values) > 0 {
 		logf("sql: pool %d values", len(p.values))
 	}
-	p.values = p.values[:]
+	for _, v := range p.values {
+		poolValue(v)
+	}
+	p.values = p.values[:0]
 	valuesPoolPool.Put(p)
 	poolCounter.Dec(1)
+	return nil
 }
 
 func getString() *NullString {
@@ -139,5 +140,9 @@ func poolValue(v interface{}) {
 }
 
 func CountPool() int64 {
-	return poolCounter.Count()
+	n := poolCounter.Count()
+	if n < 0 {
+		panic("fatal")
+	}
+	return n
 }
