@@ -2,6 +2,14 @@ package sql
 
 import (
 	"database/sql"
+	"errors"
+	"sync"
+)
+
+var (
+	rowsPool sync.Pool
+
+	errRowsClosed = errors.New("sql: Rows are closed")
 )
 
 // Rows is the result of a query.
@@ -18,12 +26,33 @@ func newRows(r *sql.Rows) (*Rows, error) {
 		}
 		return nil, err
 	}
-	return &Rows{rows: r, columns: columns}, nil
+	return getRows(r, columns), nil
+}
+
+func getRows(rows *sql.Rows, columns []string) *Rows {
+	poolCounter.Inc(1)
+	var r *Rows
+	if v := rowsPool.Get(); v != nil {
+		r = v.(*Rows)
+	} else {
+		r = &Rows{}
+		newMeter.Mark(1)
+	}
+	r.rows = rows
+	r.columns = columns
+	return r
 }
 
 // Close closes the Rows, preventing further enumeration. If Fetch returns
 // nil, the Rows are closed automatically. Close is idempotent.
 func (r *Rows) Close() error {
+	if r.rows == nil {
+		return nil
+	}
+	r.rows = nil
+	r.columns = nil
+	rowsPool.Put(r)
+	poolCounter.Dec(1)
 	return r.rows.Close()
 }
 
@@ -31,6 +60,10 @@ func (r *Rows) Close() error {
 // It returns a Row on success, or nil if there is no next result row.
 // It returns the error, if any, that was encountered during iteration.
 func (r *Rows) FetchOne(scn Scanner) (Row, error) {
+	if r.rows == nil {
+		return nil, errRowsClosed
+	}
+
 	if !r.rows.Next() {
 		return nil, r.rows.Err()
 	}

@@ -9,7 +9,7 @@ import (
 var (
 	sessionPool sync.Pool
 
-	errSesionClosed = errors.New("sql: session is closed")
+	errSesionClosed = errors.New("sql: Session is closed")
 )
 
 // Session is a database handle.
