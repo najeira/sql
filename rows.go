@@ -49,11 +49,12 @@ func (r *Rows) Close() error {
 	if r.rows == nil {
 		return nil
 	}
+	err := r.rows.Close()
 	r.rows = nil
 	r.columns = nil
 	rowsPool.Put(r)
 	poolCounter.Dec(1)
-	return r.rows.Close()
+	return err
 }
 
 // FetchOne fetchs the next row.
