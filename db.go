@@ -22,5 +22,6 @@ func Open(driver, dsn string) (*DB, error) {
 
 // Session creates a new session to execute queries with.
 func (d *DB) Session() *Session {
+	metrics.MarkConnections(d.DB.Stats().OpenConnections)
 	return getSession(d.DB, nil, nil)
 }

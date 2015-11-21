@@ -26,6 +26,7 @@ func getSession(db *sql.DB, tx *sql.Tx, vp *values) *Session {
 		s = v.(*Session)
 	} else {
 		s = &Session{}
+		newMeter.Mark(1)
 	}
 	s.db = db
 	s.tx = tx
@@ -113,6 +114,8 @@ func (s *Session) Begin() (*Session, error) {
 		return nil, err
 	}
 
+	metrics.MarkBegin()
+
 	tx := getSession(nil, sqlTx, s.values)
 	return tx, nil
 }
@@ -122,7 +125,11 @@ func (s *Session) Commit() error {
 	if s.tx == nil {
 		return sql.ErrTxDone // not in tx
 	}
-	return s.tx.Commit()
+	err := s.tx.Commit()
+	if err != nil {
+		metrics.MarkCommit()
+	}
+	return err
 }
 
 // Rollback aborts the transaction if the session is for transaction.
@@ -130,7 +137,11 @@ func (s *Session) Rollback() error {
 	if s.tx == nil {
 		return sql.ErrTxDone // not in tx
 	}
-	return s.tx.Rollback()
+	err := s.tx.Rollback()
+	if err != nil {
+		metrics.MarkRollback()
+	}
+	return err
 }
 
 // RunInTx runs the function in a transaction.
@@ -139,7 +150,7 @@ func (s *Session) RunInTx(f func(*Session) error) error {
 	if err != nil {
 		return err
 	}
-	if logv(logDebug) {
+	if logv(logTrace) {
 		logln("BEGIN")
 	}
 
@@ -152,7 +163,7 @@ func (s *Session) RunInTx(f func(*Session) error) error {
 				logf("ROLLBACK %v", rerr)
 			}
 		} else {
-			if logv(logDebug) {
+			if logv(logTrace) {
 				logln("ROLLBACK")
 			}
 		}
@@ -161,7 +172,7 @@ func (s *Session) RunInTx(f func(*Session) error) error {
 
 	err = tx.Commit()
 	if err != nil {
-		if logv(logDebug) {
+		if logv(logTrace) {
 			logln("COMMIT")
 		}
 	}

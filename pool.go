@@ -14,10 +14,12 @@ var (
 	valuesPool sync.Pool
 
 	poolCounter mt.Counter
+	newMeter    mt.Meter
 )
 
 func init() {
 	poolCounter = mt.NewCounter()
+	newMeter = mt.NewMeter()
 }
 
 type values struct {
@@ -29,6 +31,7 @@ func getValues() *values {
 	if v := valuesPool.Get(); v != nil {
 		return v.(*values)
 	}
+	newMeter.Mark(1)
 	return &values{
 		inuse: make([]interface{}, 0, 64),
 	}
@@ -77,6 +80,7 @@ func getString() *NullString {
 	if v := stringPool.Get(); v != nil {
 		return v.(*NullString)
 	}
+	newMeter.Mark(1)
 	return &NullString{}
 }
 
@@ -85,6 +89,7 @@ func getInt64() *NullInt64 {
 	if v := intPool.Get(); v != nil {
 		return v.(*NullInt64)
 	}
+	newMeter.Mark(1)
 	return &NullInt64{}
 }
 
@@ -93,6 +98,7 @@ func getFloat64() *NullFloat64 {
 	if v := floatPool.Get(); v != nil {
 		return v.(*NullFloat64)
 	}
+	newMeter.Mark(1)
 	return &NullFloat64{}
 }
 
@@ -101,6 +107,7 @@ func getBool() *NullBool {
 	if v := boolPool.Get(); v != nil {
 		return v.(*NullBool)
 	}
+	newMeter.Mark(1)
 	return &NullBool{}
 }
 
@@ -160,10 +167,14 @@ func poolValue(v interface{}) {
 	}
 }
 
-func CountPool() int64 {
-	n := poolCounter.Count()
-	if n < 0 {
+func GetStats() map[string]float64 {
+	uc := poolCounter.Count()
+	if uc < 0 {
 		panic("fatal")
 	}
-	return n
+	return map[string]float64{
+		"new_count":   float64(newMeter.Count()),
+		"new_rate":    newMeter.Rate1(),
+		"using_count": float64(uc),
+	}
 }

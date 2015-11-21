@@ -37,30 +37,39 @@ type metricsDB struct {
 	executes    mt.Meter
 	rows        mt.Meter
 	affects     mt.Meter
+	begins      mt.Meter
+	commits     mt.Meter
+	rollbacks   mt.Meter
 }
 
-func (m *metricsDB) MarkQueries(v int) {
-	if v != 0 {
-		m.queries.Mark(int64(v))
-	}
+func (m *metricsDB) MarkQuery() {
+	m.queries.Mark(1)
 }
 
-func (m *metricsDB) MarkExecutes(v int) {
-	if v != 0 {
-		m.executes.Mark(int64(v))
-	}
+func (m *metricsDB) MarkExecute() {
+	m.executes.Mark(1)
 }
 
-func (m *metricsDB) MarkRows(v int) {
-	if v != 0 {
-		m.rows.Mark(int64(v))
-	}
+func (m *metricsDB) MarkRow() {
+	m.rows.Mark(1)
 }
 
 func (m *metricsDB) MarkAffects(v int) {
 	if v != 0 {
 		m.affects.Mark(int64(v))
 	}
+}
+
+func (m *metricsDB) MarkBegin() {
+	m.begins.Mark(1)
+}
+
+func (m *metricsDB) MarkCommit() {
+	m.commits.Mark(1)
+}
+
+func (m *metricsDB) MarkRollback() {
+	m.rollbacks.Mark(1)
 }
 
 func (m *metricsDB) MarkConnections(v int) {

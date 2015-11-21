@@ -46,7 +46,7 @@ func sqlQuery(svc querier, q string, args ...interface{}) (*Rows, error) {
 		logf("%s %v", q, args)
 	}
 
-	metrics.MarkQueries(1)
+	metrics.MarkQuery()
 	defer timers.Measure(q, time.Now())
 
 	rows, err := svc.Query(q, args...)
@@ -81,7 +81,7 @@ func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
 		logf("%s %v", q, args)
 	}
 
-	metrics.MarkExecutes(1)
+	metrics.MarkExecute()
 	defer timers.Measure(q, time.Now())
 
 	res, err := svc.Exec(q, args...)
