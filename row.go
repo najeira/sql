@@ -7,8 +7,10 @@ import (
 // Row is the result of query.
 type Row map[string]interface{}
 
-func (m Row) Value(key string, args ...interface{}) interface{} {
-	if v, ok := m[key]; ok {
+// Value returns the value for the column in the row.
+// It returns nil if not found.
+func (m Row) Value(column string, args ...interface{}) interface{} {
+	if v, ok := m[column]; ok {
 		return v
 	}
 	if len(args) > 0 {
@@ -17,8 +19,10 @@ func (m Row) Value(key string, args ...interface{}) interface{} {
 	return nil
 }
 
-func (m Row) String(key string, args ...interface{}) string {
-	if v, ok := m[key]; ok {
+// String returns the string value for the column in the row.
+// It returns empty string if not found or it is not string.
+func (m Row) String(column string, args ...interface{}) string {
+	if v, ok := m[column]; ok {
 		if ns, ok := v.(NullString); ok && ns.Valid {
 			return ns.String
 		} else if ns, ok := v.(*NullString); ok && ns.Valid {
@@ -33,8 +37,10 @@ func (m Row) String(key string, args ...interface{}) string {
 	return ""
 }
 
-func (m Row) Int(key string, args ...interface{}) int64 {
-	if v, ok := m[key]; ok {
+// Int returns the integer value for the column in the row.
+// It returns 0 if not found or it is not integer.
+func (m Row) Int(column string, args ...interface{}) int64 {
+	if v, ok := m[column]; ok {
 		if ns, ok := v.(NullInt64); ok && ns.Valid {
 			return ns.Int64
 		} else if ns, ok := v.(*NullInt64); ok && ns.Valid {
@@ -49,8 +55,10 @@ func (m Row) Int(key string, args ...interface{}) int64 {
 	return 0
 }
 
-func (m Row) Float(key string, args ...interface{}) float64 {
-	if v, ok := m[key]; ok {
+// Float returns the float value for the column in the row.
+// It returns 0 if not found or it is not float.
+func (m Row) Float(column string, args ...interface{}) float64 {
+	if v, ok := m[column]; ok {
 		if ns, ok := v.(NullFloat64); ok && ns.Valid {
 			return ns.Float64
 		} else if ns, ok := v.(*NullFloat64); ok && ns.Valid {
@@ -65,8 +73,10 @@ func (m Row) Float(key string, args ...interface{}) float64 {
 	return 0
 }
 
-func (m Row) Bool(key string, args ...interface{}) bool {
-	if v, ok := m[key]; ok {
+// Bool returns the boolean value in the row.
+// It returns false if not found or it is not boolean.
+func (m Row) Bool(column string, args ...interface{}) bool {
+	if v, ok := m[column]; ok {
 		if ns, ok := v.(NullBool); ok && ns.Valid {
 			return ns.Bool
 		} else if ns, ok := v.(*NullBool); ok && ns.Valid {
