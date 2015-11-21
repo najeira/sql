@@ -38,7 +38,7 @@ type executor interface {
 	Exec(string, ...interface{}) (sql.Result, error)
 }
 
-func sqlQuery(svc querier, s Scanner, q string, args ...interface{}) (*Rows, error) {
+func sqlQuery(svc querier, q string, args ...interface{}) (*Rows, error) {
 	if svc == nil {
 		return nil, ErrSessionClosed
 	}
@@ -64,10 +64,10 @@ func sqlQuery(svc querier, s Scanner, q string, args ...interface{}) (*Rows, err
 	return newRows(rows)
 }
 
-func sqlQueryAsync(svc querier, s Scanner, q string, args ...interface{}) <-chan AsyncRows {
+func sqlQueryAsync(svc querier, q string, args ...interface{}) <-chan AsyncRows {
 	ch := make(chan AsyncRows, 1)
 	go func() {
-		rows, err := sqlQuery(svc, s, q, args...)
+		rows, err := sqlQuery(svc, q, args...)
 		ch <- AsyncRows{Rows: rows, Err: err}
 	}()
 	return ch

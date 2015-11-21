@@ -73,7 +73,7 @@ func (m Row) Float(column string, args ...interface{}) float64 {
 	return 0
 }
 
-// Bool returns the boolean value in the row.
+// Bool returns the boolean value for the column in the row.
 // It returns false if not found or it is not boolean.
 func (m Row) Bool(column string, args ...interface{}) bool {
 	if v, ok := m[column]; ok {
