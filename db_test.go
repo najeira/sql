@@ -80,12 +80,12 @@ func TestDB(t *testing.T) {
 		return []interface{}{id, name, age}, nil
 	}
 
-	row, err := rows.Fetch(scn)
+	row, err := rows.FetchOne(scn)
 	if err != nil {
-		t.Fatalf("Rows.Fetch: error %v", err)
+		t.Fatalf("Rows.FetchOne: error %v", err)
 	}
 	if row == nil {
-		t.Fatalf("Rows.Fetch: nil")
+		t.Fatalf("Rows.FetchOne: nil")
 	}
 	if row.Int("id") != 1 {
 		t.Errorf("Row.String: expected 1, got %d", row.Int("id"))
@@ -97,12 +97,12 @@ func TestDB(t *testing.T) {
 		t.Errorf("Row.String: expected 32, got %d", row.Int("age"))
 	}
 
-	row, err = rows.Fetch(scn)
+	row, err = rows.FetchOne(scn)
 	if err != nil {
-		t.Fatalf("Rows.Fetch: error %v", err)
+		t.Fatalf("Rows.FetchOne: error %v", err)
 	}
 	if row != nil {
-		t.Fatalf("Rows.Fetch: %v", row)
+		t.Fatalf("Rows.FetchOne: %v", row)
 	}
 }
 

@@ -27,10 +27,10 @@ func (r *Rows) Close() error {
 	return r.rows.Close()
 }
 
-// Fetch fetchs the next row.
+// FetchOne fetchs the next row.
 // It returns a Row on success, or nil if there is no next result row.
 // It returns the error, if any, that was encountered during iteration.
-func (r *Rows) Fetch(scn Scanner) (Row, error) {
+func (r *Rows) FetchOne(scn Scanner) (Row, error) {
 	if !r.rows.Next() {
 		return nil, r.rows.Err()
 	}
@@ -54,11 +54,11 @@ func (r *Rows) Fetch(scn Scanner) (Row, error) {
 
 // FetchAll fetchs all the rows and close the Rows.
 // It returns the error, if any, that was encountered during iteration.
-func (r *Rows) FetchAll(scn Scanner) ([]Row, error) {
+func (r *Rows) Fetch(scn Scanner) ([]Row, error) {
 	defer r.Close()
 	rets := make([]Row, 0)
 	for {
-		row, err := r.Fetch(scn)
+		row, err := r.FetchOne(scn)
 		if err != nil {
 			return nil, err
 		}
