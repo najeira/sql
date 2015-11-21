@@ -25,7 +25,7 @@ func logv(level int) bool {
 
 func logln(v interface{}) {
 	if logger != nil {
-		logger.Print(v)
+		logger.Println(v)
 	}
 }
 
