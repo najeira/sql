@@ -106,7 +106,7 @@ func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
 		}
 	}
 
-	metrics.MarkAffects(int(n))
+	metrics.MarkAffects(n)
 
 	eres.LastInsertId = i
 	eres.RowsAffected = n

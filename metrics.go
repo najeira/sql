@@ -54,9 +54,9 @@ func (m *metricsDB) MarkRow() {
 	m.rows.Mark(1)
 }
 
-func (m *metricsDB) MarkAffects(v int) {
+func (m *metricsDB) MarkAffects(v int64) {
 	if v != 0 {
-		m.affects.Mark(int64(v))
+		m.affects.Mark(v)
 	}
 }
 
