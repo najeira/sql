@@ -4,6 +4,7 @@ import (
 	"github.com/najeira/goutils/varutil"
 )
 
+// Row is the result of query.
 type Row map[string]interface{}
 
 func (m Row) Value(key string, args ...interface{}) interface{} {

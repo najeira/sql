@@ -8,16 +8,23 @@ import (
 
 var ErrSessionClosed = errors.New("sql: Session has already been closed")
 
+// Scan copies the columns in the current row into the arguments.
 type Scan func(...interface{}) error
 
+// Scanner returns the columns in the current row.
 type Scanner func(Scan) ([]interface{}, error)
 
-type QueryResult struct {
-	Rows []Row
+type AsyncRows struct {
+	Rows *Rows
 	Err  error
 }
 
-type ExecResult struct {
+type Result struct {
+	LastInsertId int64
+	RowsAffected int64
+}
+
+type AsyncResult struct {
 	LastInsertId int64
 	RowsAffected int64
 	Err          error
@@ -31,7 +38,7 @@ type executor interface {
 	Exec(string, ...interface{}) (sql.Result, error)
 }
 
-func sqlQuery(svc querier, s Scanner, q string, args ...interface{}) ([]Row, error) {
+func sqlQuery(svc querier, s Scanner, q string, args ...interface{}) (*Rows, error) {
 	if svc == nil {
 		return nil, ErrSessionClosed
 	}
@@ -53,59 +60,23 @@ func sqlQuery(svc querier, s Scanner, q string, args ...interface{}) ([]Row, err
 		}
 		return nil, err
 	}
-	defer rows.Close()
 
-	columns, err := rows.Columns()
-	if err != nil {
-		if logv(logErr) {
-			logln(err)
-		}
-		return nil, err
-	}
-
-	rets := make([]Row, 0)
-
-	for rows.Next() {
-		values, err := s(rows.Scan)
-		if err != nil {
-			if logv(logErr) {
-				logln(err)
-			}
-			return nil, err
-		}
-
-		ret := make(Row)
-		for i, column := range columns {
-			ret[column] = values[i]
-		}
-		rets = append(rets, ret)
-	}
-
-	Metrics.MarkRows(len(rets))
-
-	if logv(logDebug) {
-		logf("%d rows", len(rets))
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return rets, nil
+	return newRows(rows)
 }
 
-func sqlQueryAsync(svc querier, s Scanner, q string, args ...interface{}) chan QueryResult {
-	ch := make(chan QueryResult)
+func sqlQueryAsync(svc querier, s Scanner, q string, args ...interface{}) <-chan AsyncRows {
+	ch := make(chan AsyncRows, 1)
 	go func() {
 		rows, err := sqlQuery(svc, s, q, args...)
-		ch <- QueryResult{Rows: rows, Err: err}
+		ch <- AsyncRows{Rows: rows, Err: err}
 	}()
 	return ch
 }
 
-func sqlExec(svc executor, q string, args ...interface{}) (int64, int64, error) {
+func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
+	eres := Result{}
 	if svc == nil {
-		return 0, 0, ErrSessionClosed
+		return eres, ErrSessionClosed
 	}
 
 	defer Metrics.Measure(time.Now(), q)
@@ -123,7 +94,7 @@ func sqlExec(svc executor, q string, args ...interface{}) (int64, int64, error) 
 		if logv(logErr) {
 			logln(err)
 		}
-		return 0, 0, err
+		return eres, err
 	}
 
 	i, err := res.LastInsertId()
@@ -142,14 +113,20 @@ func sqlExec(svc executor, q string, args ...interface{}) (int64, int64, error) 
 
 	Metrics.MarkAffects(int(n))
 
-	return i, n, nil
+	eres.LastInsertId = i
+	eres.RowsAffected = n
+	return eres, nil
 }
 
-func sqlExecAsync(svc executor, q string, args ...interface{}) chan ExecResult {
-	ch := make(chan ExecResult)
+func sqlExecAsync(svc executor, q string, args ...interface{}) <-chan AsyncResult {
+	ch := make(chan AsyncResult, 1)
 	go func() {
-		i, n, err := sqlExec(svc, q, args...)
-		ch <- ExecResult{LastInsertId: i, RowsAffected: n, Err: err}
+		res, err := sqlExec(svc, q, args...)
+		ch <- AsyncResult{
+			LastInsertId: res.LastInsertId,
+			RowsAffected: res.RowsAffected,
+			Err:          err,
+		}
 	}()
 	return ch
 }

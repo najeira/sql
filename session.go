@@ -64,19 +64,19 @@ func (s *Session) executor() executor {
 	return s.db
 }
 
-func (s *Session) Query(scn Scanner, q string, args ...interface{}) ([]Row, error) {
+func (s *Session) Query(scn Scanner, q string, args ...interface{}) (*Rows, error) {
 	return sqlQuery(s.querier(), scn, q, args...)
 }
 
-func (s *Session) QueryAsync(scn Scanner, q string, args ...interface{}) chan QueryResult {
+func (s *Session) QueryAsync(scn Scanner, q string, args ...interface{}) <-chan AsyncRows {
 	return sqlQueryAsync(s.querier(), scn, q, args...)
 }
 
-func (s *Session) Exec(q string, args ...interface{}) (int64, int64, error) {
+func (s *Session) Exec(q string, args ...interface{}) (Result, error) {
 	return sqlExec(s.executor(), q, args...)
 }
 
-func (s *Session) ExecAsync(q string, args ...interface{}) chan ExecResult {
+func (s *Session) ExecAsync(q string, args ...interface{}) <-chan AsyncResult {
 	return sqlExecAsync(s.executor(), q, args...)
 }
 
@@ -97,14 +97,14 @@ func (s *Session) Begin() (*Session, error) {
 
 func (s *Session) Commit() error {
 	if s.tx == nil {
-		return nil // not in tx
+		return sql.ErrTxDone // not in tx
 	}
 	return s.tx.Commit()
 }
 
 func (s *Session) Rollback() error {
 	if s.tx == nil {
-		return nil // not in tx
+		return sql.ErrTxDone // not in tx
 	}
 	return s.tx.Rollback()
 }
@@ -141,4 +141,8 @@ func (s *Session) RunInTx(f func(*Session) error) error {
 		}
 	}
 	return err
+}
+
+func (s *Session) IsTx() bool {
+	return s.tx != nil
 }
