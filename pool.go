@@ -57,13 +57,15 @@ func (p *valuesPool) Bool() *NullBool {
 }
 
 func (p *valuesPool) Close() error {
-	if logv(logDebug) && len(p.values) > 0 {
-		logf("sql: pool %d values", len(p.values))
+	if len(p.values) > 0 {
+		if logv(logDebug) {
+			logf("sql: pool %d values", len(p.values))
+		}
+		for _, v := range p.values {
+			poolValue(v)
+		}
+		p.values = p.values[:0]
 	}
-	for _, v := range p.values {
-		poolValue(v)
-	}
-	p.values = p.values[:0]
 	valuesPoolPool.Put(p)
 	poolCounter.Dec(1)
 	return nil
@@ -102,21 +104,41 @@ func getBool() *NullBool {
 }
 
 func poolString(v *NullString) {
+	if v == nil {
+		return
+	}
+	v.Valid = false
+	v.String = ""
 	stringPool.Put(v)
 	poolCounter.Dec(1)
 }
 
 func poolInt64(v *NullInt64) {
+	if v == nil {
+		return
+	}
+	v.Valid = false
+	v.Int64 = 0
 	intPool.Put(v)
 	poolCounter.Dec(1)
 }
 
 func poolFloat64(v *NullFloat64) {
+	if v == nil {
+		return
+	}
+	v.Valid = false
+	v.Float64 = 0
 	floatPool.Put(v)
 	poolCounter.Dec(1)
 }
 
 func poolBool(v *NullBool) {
+	if v == nil {
+		return
+	}
+	v.Valid = false
+	v.Bool = false
 	boolPool.Put(v)
 	poolCounter.Dec(1)
 }
