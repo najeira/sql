@@ -43,7 +43,7 @@ func (r *Rows) FetchOne(scn Scanner) (Row, error) {
 		return nil, err
 	}
 
-	Metrics.MarkRows(1)
+	metrics.MarkRows(1)
 
 	ret := make(Row)
 	for i, column := range r.columns {

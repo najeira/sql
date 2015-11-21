@@ -40,15 +40,14 @@ func sqlQuery(svc querier, q string, args ...interface{}) (*Rows, error) {
 		return nil, errSesionClosed
 	}
 
-	defer Metrics.Measure(time.Now(), q)
-
 	args = flattenArgs(args)
 
-	if logv(logDebug) {
+	if logv(logTrace) {
 		logf("%s %v", q, args)
 	}
 
-	Metrics.MarkQueries(1)
+	metrics.MarkQueries(1)
+	defer timers.Measure(q, time.Now())
 
 	rows, err := svc.Query(q, args...)
 	if err != nil {
@@ -76,15 +75,14 @@ func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
 		return eres, errSesionClosed
 	}
 
-	defer Metrics.Measure(time.Now(), q)
-
 	args = flattenArgs(args)
 
-	if logv(logDebug) {
+	if logv(logTrace) {
 		logf("%s %v", q, args)
 	}
 
-	Metrics.MarkExecutes(1)
+	metrics.MarkExecutes(1)
+	defer timers.Measure(q, time.Now())
 
 	res, err := svc.Exec(q, args...)
 	if err != nil {
@@ -108,7 +106,7 @@ func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
 		}
 	}
 
-	Metrics.MarkAffects(int(n))
+	metrics.MarkAffects(int(n))
 
 	eres.LastInsertId = i
 	eres.RowsAffected = n
