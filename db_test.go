@@ -87,8 +87,14 @@ func TestDB(t *testing.T) {
 	if row == nil {
 		t.Fatalf("Rows.Fetch: returns nil")
 	}
+	if row.Int("id") != 1 {
+		t.Errorf("Row.String: expected 1, got %d", row.Int("id"))
+	}
 	if row.String("name") != "Akihabara" {
 		t.Errorf("Row.String: expected Akihabara, got %s", row.String("name"))
+	}
+	if row.Int("age") != 32 {
+		t.Errorf("Row.String: expected 32, got %d", row.Int("age"))
 	}
 
 	row, err = rows.Fetch(scn)
