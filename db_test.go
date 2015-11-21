@@ -15,7 +15,7 @@ func TestDB(t *testing.T) {
 
 	s := db.Session()
 	if s == nil {
-		t.Fatalf("DB.Session: returns nil")
+		t.Fatalf("DB.Session: nil")
 	}
 	defer s.Close()
 
@@ -66,7 +66,7 @@ func TestDB(t *testing.T) {
 		t.Fatalf("Session.Query: %s error %v", q, err)
 	}
 	if rows == nil {
-		t.Fatalf("Session.Query: %s returns nil", q)
+		t.Fatalf("Session.Query: %s nil", q)
 	}
 
 	scn := func(sc Scan) ([]interface{}, error) {
@@ -85,7 +85,7 @@ func TestDB(t *testing.T) {
 		t.Fatalf("Rows.Fetch: error %v", err)
 	}
 	if row == nil {
-		t.Fatalf("Rows.Fetch: returns nil")
+		t.Fatalf("Rows.Fetch: nil")
 	}
 	if row.Int("id") != 1 {
 		t.Errorf("Row.String: expected 1, got %d", row.Int("id"))
@@ -102,6 +102,42 @@ func TestDB(t *testing.T) {
 		t.Fatalf("Rows.Fetch: error %v", err)
 	}
 	if row != nil {
-		t.Fatalf("Rows.Fetch: returns %v", row)
+		t.Fatalf("Rows.Fetch: %v", row)
+	}
+}
+
+func TestSessionClose(t *testing.T) {
+	db, err := Open("ramsql", "TestLoadUserAddresses")
+	if err != nil {
+		t.Fatalf("Open: error %v", err)
+	}
+	defer db.Close()
+
+	s := db.Session()
+	if s == nil {
+		t.Fatalf("DB.Session: nil")
+	}
+
+	v := s.values
+
+	if len(v.inuse) != 0 {
+		t.Errorf("inuse: expected 0, got %d", len(v.inuse))
+	}
+
+	i := s.Int64()
+	i.Valid = true
+	i.Int64 = 123
+
+	if len(v.inuse) != 1 {
+		t.Errorf("inuse: expected 1, got %d", len(v.inuse))
+	}
+
+	err = s.Close()
+	if err != nil {
+		t.Errorf("Session.Close: %v", err)
+	}
+
+	if len(v.inuse) != 0 {
+		t.Errorf("inuse: expected 0, got %d", len(v.inuse))
 	}
 }

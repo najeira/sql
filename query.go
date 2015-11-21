@@ -2,11 +2,8 @@ package sql
 
 import (
 	"database/sql"
-	"errors"
 	"time"
 )
-
-var ErrSessionClosed = errors.New("sql: Session has already been closed")
 
 // Scan copies the columns in the current row into the arguments.
 type Scan func(...interface{}) error
@@ -40,7 +37,7 @@ type executor interface {
 
 func sqlQuery(svc querier, q string, args ...interface{}) (*Rows, error) {
 	if svc == nil {
-		return nil, ErrSessionClosed
+		return nil, errSesionClosed
 	}
 
 	defer Metrics.Measure(time.Now(), q)
@@ -76,7 +73,7 @@ func sqlQueryAsync(svc querier, q string, args ...interface{}) <-chan AsyncRows 
 func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
 	eres := Result{}
 	if svc == nil {
-		return eres, ErrSessionClosed
+		return eres, errSesionClosed
 	}
 
 	defer Metrics.Measure(time.Now(), q)

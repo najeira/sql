@@ -124,7 +124,7 @@ func TestPoolValuesGetPut(t *testing.T) {
 	b.Valid = true
 	b.Bool = true
 
-	v.Close()
+	v.Clear()
 
 	v2 := getValues()
 	if v2 != v {

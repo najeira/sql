@@ -2,19 +2,21 @@ package sql
 
 import (
 	"database/sql"
+	"errors"
 	"sync"
 )
 
 var (
 	sessionPool sync.Pool
+
+	errSesionClosed = errors.New("sql: session is closed")
 )
 
 // Session is a database handle.
 type Session struct {
-	*values
-
-	db *sql.DB
-	tx *sql.Tx
+	db     *sql.DB
+	tx     *sql.Tx
+	values *values
 }
 
 func getSession(db *sql.DB, tx *sql.Tx, vp *values) *Session {
@@ -42,9 +44,9 @@ func (s *Session) Close() error {
 	}
 
 	// do not close values at tx session.
-	// it will be closed root session.
+	// it will be cleared by root session.
 	if s.tx == nil {
-		s.values.Close()
+		s.values.Clear()
 	}
 	s.values = nil
 
@@ -100,6 +102,10 @@ func (s *Session) Begin() (*Session, error) {
 	// return self if already in transaction
 	if s.tx != nil {
 		return s, nil
+	}
+
+	if s.db == nil {
+		return nil, errSesionClosed
 	}
 
 	sqlTx, err := s.db.Begin()
@@ -165,4 +171,32 @@ func (s *Session) RunInTx(f func(*Session) error) error {
 // IsTx returns true if the session for transaction, otherwise false.
 func (s *Session) IsTx() bool {
 	return s.tx != nil
+}
+
+func (s *Session) String() *NullString {
+	if s.values == nil {
+		return nil
+	}
+	return s.values.String()
+}
+
+func (s *Session) Int64() *NullInt64 {
+	if s.values == nil {
+		return nil
+	}
+	return s.values.Int64()
+}
+
+func (s *Session) Float64() *NullFloat64 {
+	if s.values == nil {
+		return nil
+	}
+	return s.values.Float64()
+}
+
+func (s *Session) Bool() *NullBool {
+	if s.values == nil {
+		return nil
+	}
+	return s.values.Bool()
 }

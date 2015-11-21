@@ -56,7 +56,7 @@ func (p *values) Bool() *NullBool {
 	return v
 }
 
-func (p *values) Close() error {
+func (p *values) Clear() {
 	if len(p.inuse) > 0 {
 		if logv(logDebug) {
 			logf("sql: pool %d values", len(p.inuse))
@@ -68,7 +68,6 @@ func (p *values) Close() error {
 	}
 	valuesPool.Put(p)
 	poolCounter.Dec(1)
-	return nil
 }
 
 func getString() *NullString {
