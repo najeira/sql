@@ -5,11 +5,11 @@ import (
 )
 
 var (
-	stringPool     sync.Pool
-	intPool        sync.Pool
-	floatPool      sync.Pool
-	boolPool       sync.Pool
-	valuesPoolPool sync.Pool
+	stringPool sync.Pool
+	intPool    sync.Pool
+	floatPool  sync.Pool
+	boolPool   sync.Pool
+	valuesPool sync.Pool
 
 	poolCounter *counter
 )
@@ -18,55 +18,55 @@ func init() {
 	poolCounter = &counter{}
 }
 
-type valuesPool struct {
-	values []interface{}
+type values struct {
+	inuse []interface{}
 }
 
-func getValuesPool() *valuesPool {
+func getValues() *values {
 	poolCounter.Inc(1)
-	if v := valuesPoolPool.Get(); v != nil {
-		return v.(*valuesPool)
+	if v := valuesPool.Get(); v != nil {
+		return v.(*values)
 	}
-	return &valuesPool{
-		values: make([]interface{}, 0, 1024),
+	return &values{
+		inuse: make([]interface{}, 0, 64),
 	}
 }
 
-func (p *valuesPool) String() *NullString {
+func (p *values) String() *NullString {
 	v := getString()
-	p.values = append(p.values, v)
+	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *valuesPool) Int64() *NullInt64 {
+func (p *values) Int64() *NullInt64 {
 	v := getInt64()
-	p.values = append(p.values, v)
+	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *valuesPool) Float64() *NullFloat64 {
+func (p *values) Float64() *NullFloat64 {
 	v := getFloat64()
-	p.values = append(p.values, v)
+	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *valuesPool) Bool() *NullBool {
+func (p *values) Bool() *NullBool {
 	v := getBool()
-	p.values = append(p.values, v)
+	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *valuesPool) Close() error {
-	if len(p.values) > 0 {
+func (p *values) Close() error {
+	if len(p.inuse) > 0 {
 		if logv(logDebug) {
-			logf("sql: pool %d values", len(p.values))
+			logf("sql: pool %d values", len(p.inuse))
 		}
-		for _, v := range p.values {
+		for _, v := range p.inuse {
 			poolValue(v)
 		}
-		p.values = p.values[:0]
+		p.inuse = p.inuse[:0]
 	}
-	valuesPoolPool.Put(p)
+	valuesPool.Put(p)
 	poolCounter.Dec(1)
 	return nil
 }

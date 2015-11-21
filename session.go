@@ -11,13 +11,13 @@ var (
 
 // Session is a database handle.
 type Session struct {
-	*valuesPool
+	*values
 
 	db *sql.DB
 	tx *sql.Tx
 }
 
-func getSession(db *sql.DB, tx *sql.Tx, vp *valuesPool) *Session {
+func getSession(db *sql.DB, tx *sql.Tx, vp *values) *Session {
 	poolCounter.Inc(1)
 	var s *Session
 	if v := sessionPool.Get(); v != nil {
@@ -28,9 +28,9 @@ func getSession(db *sql.DB, tx *sql.Tx, vp *valuesPool) *Session {
 	s.db = db
 	s.tx = tx
 	if vp != nil {
-		s.valuesPool = vp
+		s.values = vp
 	} else {
-		s.valuesPool = getValuesPool()
+		s.values = getValues()
 	}
 	return s
 }
@@ -41,12 +41,12 @@ func (s *Session) Close() error {
 		return nil
 	}
 
-	// do not close valuesPool at tx session.
+	// do not close values at tx session.
 	// it will be closed root session.
 	if s.tx == nil {
-		s.valuesPool.Close()
+		s.values.Close()
 	}
-	s.valuesPool = nil
+	s.values = nil
 
 	s.db = nil
 	s.tx = nil
@@ -107,7 +107,7 @@ func (s *Session) Begin() (*Session, error) {
 		return nil, err
 	}
 
-	tx := getSession(nil, sqlTx, s.valuesPool)
+	tx := getSession(nil, sqlTx, s.values)
 	return tx, nil
 }
 
