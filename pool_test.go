@@ -175,3 +175,25 @@ func TestPoolValuesGetPut(t *testing.T) {
 		t.Errorf("values.Bool: String is not zero")
 	}
 }
+
+func BenchmarkValuesNewWithPool(b *testing.B) {
+	disableValuesPool = false
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v := getValues()
+		v.Clear()
+	}
+}
+
+func BenchmarkValuesNewWithoutPool(b *testing.B) {
+	disableValuesPool = true
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v := getValues()
+		v.Clear()
+	}
+}

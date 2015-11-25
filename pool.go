@@ -7,11 +7,12 @@ import (
 )
 
 var (
-	stringPool sync.Pool
-	intPool    sync.Pool
-	floatPool  sync.Pool
-	boolPool   sync.Pool
-	valuesPool sync.Pool
+	stringPool        sync.Pool
+	intPool           sync.Pool
+	floatPool         sync.Pool
+	boolPool          sync.Pool
+	valuesPool        sync.Pool
+	disableValuesPool bool
 
 	poolCounter mt.Counter
 	newMeter    mt.Meter
@@ -27,9 +28,11 @@ type values struct {
 }
 
 func getValues() *values {
-	poolCounter.Inc(1)
-	if v := valuesPool.Get(); v != nil {
-		return v.(*values)
+	if !disableValuesPool {
+		poolCounter.Inc(1)
+		if v := valuesPool.Get(); v != nil {
+			return v.(*values)
+		}
 	}
 	newMeter.Mark(1)
 	return &values{
@@ -71,8 +74,10 @@ func (p *values) Clear() {
 		}
 		p.inuse = p.inuse[:0]
 	}
-	valuesPool.Put(p)
-	poolCounter.Dec(1)
+	if !disableValuesPool {
+		valuesPool.Put(p)
+		poolCounter.Dec(1)
+	}
 }
 
 func getString() *NullString {

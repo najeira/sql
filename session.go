@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	sessionPool sync.Pool
+	sessionPool        sync.Pool
+	disableSessionPool bool
 
 	errSesionClosed = errors.New("sql: Session is closed")
 )
@@ -20,14 +21,18 @@ type Session struct {
 }
 
 func getSession(db *sql.DB, tx *sql.Tx, vp *values) *Session {
-	poolCounter.Inc(1)
-	var s *Session
-	if v := sessionPool.Get(); v != nil {
-		s = v.(*Session)
-	} else {
-		s = &Session{}
-		newMeter.Mark(1)
+	var s *Session = nil
+	if !disableSessionPool {
+		poolCounter.Inc(1)
+		if v := sessionPool.Get(); v != nil {
+			s = v.(*Session)
+		}
 	}
+	if s == nil {
+		newMeter.Mark(1)
+		s = &Session{}
+	}
+
 	s.db = db
 	s.tx = tx
 	if vp != nil {
@@ -55,8 +60,10 @@ func (s *Session) Close() error {
 	s.tx = nil
 
 	// put this Session to the pool.
-	sessionPool.Put(s)
-	poolCounter.Dec(1)
+	if !disableSessionPool {
+		sessionPool.Put(s)
+		poolCounter.Dec(1)
+	}
 	return nil
 }
 

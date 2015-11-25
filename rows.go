@@ -7,9 +7,11 @@ import (
 )
 
 var (
-	rowsPool sync.Pool
+	rowsPool        sync.Pool
+	disableRowsPool bool
 
-	errRowsClosed = errors.New("sql: Rows are closed")
+	errRowsClosed   = errors.New("sql: Rows are closed")
+	errScannerIsNil = errors.New("sql: Scanner is nil")
 )
 
 // Rows is the result of a query.
@@ -18,7 +20,7 @@ type Rows struct {
 	columns []string
 }
 
-func newRows(r *sql.Rows) (*Rows, error) {
+func getRowsForSqlRows(r *sql.Rows) (*Rows, error) {
 	columns, err := r.Columns()
 	if err != nil {
 		if logv(logErr) {
@@ -26,17 +28,20 @@ func newRows(r *sql.Rows) (*Rows, error) {
 		}
 		return nil, err
 	}
-	return getRows(r, columns), nil
+	return getRowsForSqlRowsAndColumns(r, columns), nil
 }
 
-func getRows(rows *sql.Rows, columns []string) *Rows {
-	poolCounter.Inc(1)
+func getRowsForSqlRowsAndColumns(rows *sql.Rows, columns []string) *Rows {
 	var r *Rows
-	if v := rowsPool.Get(); v != nil {
-		r = v.(*Rows)
-	} else {
-		r = &Rows{}
+	if !disableRowsPool {
+		poolCounter.Inc(1)
+		if v := rowsPool.Get(); v != nil {
+			r = v.(*Rows)
+		}
+	}
+	if r == nil {
 		newMeter.Mark(1)
+		r = &Rows{}
 	}
 	r.rows = rows
 	r.columns = columns
@@ -46,14 +51,21 @@ func getRows(rows *sql.Rows, columns []string) *Rows {
 // Close closes the Rows, preventing further enumeration. If Fetch returns
 // nil, the Rows are closed automatically. Close is idempotent.
 func (r *Rows) Close() error {
-	if r.rows == nil {
+	if r.columns == nil {
 		return nil
 	}
-	err := r.rows.Close()
-	r.rows = nil
 	r.columns = nil
-	rowsPool.Put(r)
-	poolCounter.Dec(1)
+
+	var err error = nil
+	if r.rows != nil {
+		err = r.rows.Close()
+		r.rows = nil
+	}
+
+	if !disableRowsPool {
+		rowsPool.Put(r)
+		poolCounter.Dec(1)
+	}
 	return err
 }
 
@@ -61,6 +73,9 @@ func (r *Rows) Close() error {
 // It returns a Row on success, or nil if there is no next result row.
 // It returns the error, if any, that was encountered during iteration.
 func (r *Rows) FetchOne(scn Scanner) (Row, error) {
+	if scn == nil {
+		return nil, errScannerIsNil
+	}
 	if r.rows == nil {
 		return nil, errRowsClosed
 	}
@@ -89,6 +104,10 @@ func (r *Rows) FetchOne(scn Scanner) (Row, error) {
 // FetchAll fetchs all the rows and close the Rows.
 // It returns the error, if any, that was encountered during iteration.
 func (r *Rows) Fetch(scn Scanner) ([]Row, error) {
+	if scn == nil {
+		return nil, errScannerIsNil
+	}
+
 	defer r.Close()
 	rets := make([]Row, 0)
 	for {

@@ -57,7 +57,7 @@ func sqlQuery(svc querier, q string, args ...interface{}) (*Rows, error) {
 		return nil, err
 	}
 
-	return newRows(rows)
+	return getRowsForSqlRows(rows)
 }
 
 func sqlQueryAsync(svc querier, q string, args ...interface{}) <-chan AsyncRows {
