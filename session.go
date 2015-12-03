@@ -194,6 +194,10 @@ func (s *Session) RunInTx(f func(*Session) error) error {
 
 	err = tx.Commit()
 	if err != nil {
+		if logv(logErr) {
+			logf("COMMIT %v", err)
+		}
+	} else {
 		if logv(logTrace) {
 			logln("COMMIT")
 		}
