@@ -19,6 +19,9 @@ func init() {
 		executes:    mt.NewMeter(),
 		rows:        mt.NewMeter(),
 		affects:     mt.NewMeter(),
+		begins:      mt.NewMeter(),
+		commits:     mt.NewMeter(),
+		rollbacks:   mt.NewMeter(),
 	}
 	timers = &timersDB{timers: make(map[string]mt.Timer)}
 }
