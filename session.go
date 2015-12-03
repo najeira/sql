@@ -15,9 +15,10 @@ var (
 
 // Session is a database handle.
 type Session struct {
-	db     *sql.DB
-	tx     *sql.Tx
-	values *values
+	db      *sql.DB
+	tx      *sql.Tx
+	txCount int
+	values  *values
 }
 
 func getSession(db *sql.DB, tx *sql.Tx, vp *values) *Session {
@@ -58,6 +59,7 @@ func (s *Session) Close() error {
 
 	s.db = nil
 	s.tx = nil
+	s.txCount = 0
 
 	// put this Session to the pool.
 	if !disableSessionPool {
@@ -109,6 +111,7 @@ func (s *Session) ExecAsync(q string, args ...interface{}) <-chan AsyncResult {
 func (s *Session) Begin() (*Session, error) {
 	// return self if already in transaction
 	if s.tx != nil {
+		s.txCount += 1
 		return s, nil
 	}
 
@@ -132,6 +135,12 @@ func (s *Session) Commit() error {
 	if s.tx == nil {
 		return sql.ErrTxDone // not in tx
 	}
+
+	if s.txCount > 0 {
+		s.txCount -= 1
+		return nil
+	}
+
 	err := s.tx.Commit()
 	if err != nil {
 		metrics.MarkCommit()
@@ -144,6 +153,12 @@ func (s *Session) Rollback() error {
 	if s.tx == nil {
 		return sql.ErrTxDone // not in tx
 	}
+
+	if s.txCount > 0 {
+		s.txCount -= 1
+		return nil
+	}
+
 	err := s.tx.Rollback()
 	if err != nil {
 		metrics.MarkRollback()
