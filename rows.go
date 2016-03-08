@@ -110,8 +110,7 @@ func (r *Rows) Fetch(scn Scanner) ([]Row, error) {
 		row, err := r.FetchOne(scn)
 		if err != nil {
 			return nil, err
-		}
-		if row == nil { // done
+		} else if row == nil { // done
 			return rets, nil
 		}
 		rets = append(rets, row)
