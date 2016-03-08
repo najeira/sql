@@ -172,37 +172,25 @@ func (s *Session) RunInTx(f func(*Session) error) error {
 	if err != nil {
 		return err
 	}
-	if logv(logTrace) {
-		logln("BEGIN")
-	}
+	tracef("BEGIN")
 
-	err = f(tx)
-
-	if err != nil {
-		rerr := tx.Rollback()
-		if rerr != nil {
-			if logv(logErr) {
-				logf("ROLLBACK %v", rerr)
-			}
+	ferr := f(tx)
+	if ferr != nil {
+		if rerr := tx.Rollback(); rerr != nil {
+			errorf("ROLLBACK %s", rerr)
 		} else {
-			if logv(logTrace) {
-				logln("ROLLBACK")
-			}
+			tracef("ROLLBACK")
 		}
-		return err
+		return ferr
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		if logv(logErr) {
-			logf("COMMIT %v", err)
-		}
-	} else {
-		if logv(logTrace) {
-			logln("COMMIT")
-		}
+	cerr := tx.Commit()
+	if cerr != nil {
+		errorf("COMMIT %s", cerr)
+		return cerr
 	}
-	return err
+	tracef("COMMIT")
+	return nil
 }
 
 // IsTx returns true if the session for transaction, otherwise false.

@@ -66,9 +66,7 @@ func (p *values) Bool() *NullBool {
 
 func (p *values) Clear() {
 	if len(p.inuse) > 0 {
-		if logv(logDebug) {
-			logf("sql: pool %d values", len(p.inuse))
-		}
+		debugf("sql: pool %d values", len(p.inuse))
 		for _, v := range p.inuse {
 			poolValue(v)
 		}

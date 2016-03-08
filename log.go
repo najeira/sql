@@ -1,36 +1,47 @@
 package sql
 
-import (
-	log "github.com/najeira/goutils/logv"
-)
+type Logger interface {
+	V(level int) bool
+	Tracef(format string, v ...interface{})
+	Debugf(format string, v ...interface{})
+	Infof(format string, v ...interface{})
+	Warnf(format string, v ...interface{})
+	Errorf(format string, v ...interface{})
+	Fatalf(format string, v ...interface{})
+}
 
-const (
-	logTrace = log.Trace
-	logDebug = log.Debug
-	logInfo  = log.Info
-	logWarn  = log.Warn
-	logErr   = log.Err
-	logFatal = log.Fatal
-)
+var logger Logger
 
-var logger log.Logger
-
-func SetLogger(l log.Logger) {
+func SetLogger(l Logger) {
 	logger = l
 }
 
-func logv(level int) bool {
-	return logger != nil && logger.V(level)
-}
-
-func logln(v interface{}) {
+func tracef(f string, args ...interface{}) {
 	if logger != nil {
-		logger.Println(v)
+		logger.Tracef(f, args...)
 	}
 }
 
-func logf(f string, args ...interface{}) {
+func debugf(f string, args ...interface{}) {
 	if logger != nil {
-		logger.Printf(f, args...)
+		logger.Debugf(f, args...)
+	}
+}
+
+func infof(f string, args ...interface{}) {
+	if logger != nil {
+		logger.Infof(f, args...)
+	}
+}
+
+func warnf(f string, args ...interface{}) {
+	if logger != nil {
+		logger.Warnf(f, args...)
+	}
+}
+
+func errorf(f string, args ...interface{}) {
+	if logger != nil {
+		logger.Errorf(f, args...)
 	}
 }

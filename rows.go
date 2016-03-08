@@ -23,9 +23,7 @@ type Rows struct {
 func getRowsForSqlRows(r *sql.Rows) (*Rows, error) {
 	columns, err := r.Columns()
 	if err != nil {
-		if logv(logErr) {
-			logln(err)
-		}
+		errorf("%s", err)
 		return nil, err
 	}
 	return getRowsForSqlRowsAndColumns(r, columns), nil
@@ -86,9 +84,7 @@ func (r *Rows) FetchOne(scn Scanner) (Row, error) {
 
 	values, err := scn(r.rows.Scan)
 	if err != nil {
-		if logv(logErr) {
-			logln(err)
-		}
+		errorf("%s", err)
 		return nil, err
 	}
 
