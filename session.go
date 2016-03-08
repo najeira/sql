@@ -36,6 +36,7 @@ func getSession(db *sql.DB, tx *sql.Tx, vp *values) *Session {
 
 	s.db = db
 	s.tx = tx
+	s.txCount = 0
 	if vp != nil {
 		s.values = vp
 	} else {
