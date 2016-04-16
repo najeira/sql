@@ -87,7 +87,7 @@ func TestPoolGetPut(t *testing.T) {
 }
 
 func TestPoolValuesGetPut(t *testing.T) {
-	v := getValues()
+	v := NewPool()
 	if v == nil {
 		t.Fatalf("getValues: nil")
 	}
@@ -124,9 +124,9 @@ func TestPoolValuesGetPut(t *testing.T) {
 	b.Valid = true
 	b.Bool = true
 
-	v.Clear()
+	v.Close()
 
-	v2 := getValues()
+	v2 := NewPool()
 	if v2 != v {
 		t.Fatalf("getValues: another one")
 	}
@@ -173,27 +173,5 @@ func TestPoolValuesGetPut(t *testing.T) {
 	}
 	if b2.Bool != false {
 		t.Errorf("values.Bool: String is not zero")
-	}
-}
-
-func BenchmarkValuesNewWithPool(b *testing.B) {
-	disableValuesPool = false
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		v := getValues()
-		v.Clear()
-	}
-}
-
-func BenchmarkValuesNewWithoutPool(b *testing.B) {
-	disableValuesPool = true
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		v := getValues()
-		v.Clear()
 	}
 }

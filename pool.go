@@ -2,115 +2,89 @@ package sql
 
 import (
 	"sync"
-
-	mt "github.com/rcrowley/go-metrics"
 )
 
 var (
-	stringPool        sync.Pool
-	intPool           sync.Pool
-	floatPool         sync.Pool
-	boolPool          sync.Pool
-	valuesPool        sync.Pool
-	disableValuesPool bool
-
-	poolCounter mt.Counter
-	newMeter    mt.Meter
+	stringPool sync.Pool
+	intPool    sync.Pool
+	floatPool  sync.Pool
+	boolPool   sync.Pool
+	poolPool   sync.Pool
 )
 
-func init() {
-	poolCounter = mt.NewCounter()
-	newMeter = mt.NewMeter()
-}
-
-type values struct {
+type Pool struct {
 	inuse []interface{}
 }
 
-func getValues() *values {
-	if !disableValuesPool {
-		poolCounter.Inc(1)
-		if v := valuesPool.Get(); v != nil {
-			return v.(*values)
-		}
+func NewPool() *Pool {
+	if v := poolPool.Get(); v != nil {
+		return v.(*Pool)
 	}
-	newMeter.Mark(1)
-	return &values{
+	return &Pool{
 		inuse: make([]interface{}, 0, 64),
 	}
 }
 
-func (p *values) String() *NullString {
+func (p *Pool) String() *NullString {
 	v := getString()
 	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *values) Int64() *NullInt64 {
+func (p *Pool) Int64() *NullInt64 {
 	v := getInt64()
 	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *values) Float64() *NullFloat64 {
+func (p *Pool) Float64() *NullFloat64 {
 	v := getFloat64()
 	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *values) Bool() *NullBool {
+func (p *Pool) Bool() *NullBool {
 	v := getBool()
 	p.inuse = append(p.inuse, v)
 	return v
 }
 
-func (p *values) Clear() {
+func (p *Pool) Close() {
 	if len(p.inuse) > 0 {
-		debugf("sql: pool %d values", len(p.inuse))
+		//debugf("sql: pool %d Pool", len(p.inuse))
 		for _, v := range p.inuse {
 			poolValue(v)
 		}
 		p.inuse = p.inuse[:0]
 	}
-	if !disableValuesPool {
-		valuesPool.Put(p)
-		poolCounter.Dec(1)
-	}
+	poolPool.Put(p)
 }
 
 func getString() *NullString {
-	poolCounter.Inc(1)
 	if v := stringPool.Get(); v != nil {
 		return v.(*NullString)
 	}
-	newMeter.Mark(1)
 	return &NullString{}
 }
 
 func getInt64() *NullInt64 {
-	poolCounter.Inc(1)
 	if v := intPool.Get(); v != nil {
 		return v.(*NullInt64)
 	}
-	newMeter.Mark(1)
 	return &NullInt64{}
 }
 
 func getFloat64() *NullFloat64 {
-	poolCounter.Inc(1)
 	if v := floatPool.Get(); v != nil {
 		return v.(*NullFloat64)
 	}
-	newMeter.Mark(1)
 	return &NullFloat64{}
 }
 
 func getBool() *NullBool {
-	poolCounter.Inc(1)
 	if v := boolPool.Get(); v != nil {
 		return v.(*NullBool)
 	}
-	newMeter.Mark(1)
 	return &NullBool{}
 }
 
@@ -121,7 +95,6 @@ func poolString(v *NullString) {
 	v.Valid = false
 	v.String = ""
 	stringPool.Put(v)
-	poolCounter.Dec(1)
 }
 
 func poolInt64(v *NullInt64) {
@@ -131,7 +104,6 @@ func poolInt64(v *NullInt64) {
 	v.Valid = false
 	v.Int64 = 0
 	intPool.Put(v)
-	poolCounter.Dec(1)
 }
 
 func poolFloat64(v *NullFloat64) {
@@ -141,7 +113,6 @@ func poolFloat64(v *NullFloat64) {
 	v.Valid = false
 	v.Float64 = 0
 	floatPool.Put(v)
-	poolCounter.Dec(1)
 }
 
 func poolBool(v *NullBool) {
@@ -151,7 +122,6 @@ func poolBool(v *NullBool) {
 	v.Valid = false
 	v.Bool = false
 	boolPool.Put(v)
-	poolCounter.Dec(1)
 }
 
 func poolValue(v interface{}) {
@@ -167,17 +137,5 @@ func poolValue(v interface{}) {
 		poolFloat64(x)
 	case *NullBool:
 		poolBool(x)
-	}
-}
-
-func GetStats() map[string]float64 {
-	uc := poolCounter.Count()
-	if uc < 0 {
-		panic("fatal")
-	}
-	return map[string]float64{
-		"new_count":   float64(newMeter.Count()),
-		"new_rate":    newMeter.Rate1(),
-		"using_count": float64(uc),
 	}
 }

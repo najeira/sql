@@ -32,13 +32,11 @@ func getRowsForSqlRows(r *sql.Rows) (*Rows, error) {
 func getRowsForSqlRowsAndColumns(rows *sql.Rows, columns []string) *Rows {
 	var r *Rows
 	if !disableRowsPool {
-		poolCounter.Inc(1)
 		if v := rowsPool.Get(); v != nil {
 			r = v.(*Rows)
 		}
 	}
 	if r == nil {
-		newMeter.Mark(1)
 		r = &Rows{}
 	}
 	r.rows = rows
@@ -62,7 +60,6 @@ func (r *Rows) Close() error {
 
 	if !disableRowsPool {
 		rowsPool.Put(r)
-		poolCounter.Dec(1)
 	}
 	return err
 }
