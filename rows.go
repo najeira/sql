@@ -3,15 +3,10 @@ package sql
 import (
 	"database/sql"
 	"errors"
-	"sync"
 )
 
 var (
-	rowsPool        sync.Pool
-	disableRowsPool bool
-
-	errRowsClosed   = errors.New("sql: Rows are closed")
-	errScannerIsNil = errors.New("sql: Scanner is nil")
+	errRowsClosed = errors.New("sql: Rows are closed")
 )
 
 // Rows is the result of a query.
@@ -20,66 +15,62 @@ type Rows struct {
 	columns []string
 }
 
-func getRowsForSqlRows(r *sql.Rows) (*Rows, error) {
-	columns, err := r.Columns()
+func getRowsForSqlRows(sr *sql.Rows) (*Rows, error) {
+	columns, err := sr.Columns()
 	if err != nil {
 		errorf("%s", err)
 		return nil, err
 	}
-	return getRowsForSqlRowsAndColumns(r, columns), nil
+	return &Rows{rows: sr, columns: columns}, nil
 }
 
-func getRowsForSqlRowsAndColumns(rows *sql.Rows, columns []string) *Rows {
-	var r *Rows
-	if !disableRowsPool {
-		if v := rowsPool.Get(); v != nil {
-			r = v.(*Rows)
-		}
-	}
-	if r == nil {
-		r = &Rows{}
-	}
-	r.rows = rows
-	r.columns = columns
-	return r
-}
-
-// Close closes the Rows, preventing further enumeration. If Fetch returns
-// nil, the Rows are closed automatically. Close is idempotent.
+// Close closes the Rows, preventing further enumeration. If Next returns
+// false, the Rows are closed automatically and it will suffice to check the
+// result of Err. Close is idempotent and does not affect the result of Err.
 func (r *Rows) Close() error {
-	if r.columns == nil {
+	r.columns = nil
+	if r.rows == nil {
 		return nil
 	}
-	r.columns = nil
-
-	var err error = nil
-	if r.rows != nil {
-		err = r.rows.Close()
-		r.rows = nil
-	}
-
-	if !disableRowsPool {
-		rowsPool.Put(r)
-	}
+	err := r.rows.Close()
+	r.rows = nil
 	return err
 }
 
-// FetchOne fetchs the next row.
-// It returns a Row on success, or nil if there is no next result row.
-// It returns the error, if any, that was encountered during iteration.
-func (r *Rows) FetchOne(scn Scanner) (Row, error) {
-	if scn == nil {
-		return nil, errScannerIsNil
-	}
+// Next prepares the next result row for reading with the Fetch method.  It
+// returns true on success, or false if there is no next result row or an error
+// happened while preparing it.  Err should be consulted to distinguish between
+// the two cases.
+//
+// Every call to Fetch, even the first one, must be preceded by a call to Next.
+func (r *Rows) Next() bool {
+	return r.rows.Next()
+}
+
+// Err returns the error, if any, that was encountered during iteration.
+// Err may be called after an explicit or implicit Close.
+func (r *Rows) Err() error {
+	return r.rows.Err()
+}
+
+// Scan copies the columns in the current row into the values pointed
+// at by dest.
+//
+// If an argument has type *[]byte, Fetch saves in that argument a copy
+// of the corresponding data. The copy is owned by the caller and can
+// be modified and held indefinitely. The copy can be avoided by using
+// an argument of type *sql.RawBytes instead; see the documentation for
+// sql.RawBytes for restrictions on its use.
+//
+// If an argument has type *interface{}, Fetch copies the value
+// provided by the underlying driver without conversion. If the value
+// is of type []byte, a copy is made and the caller owns the result.
+func (r *Rows) Fetch(dest ...interface{}) (Row, error) {
 	if r.rows == nil {
 		return nil, errRowsClosed
 	}
 
-	if !r.rows.Next() {
-		return nil, r.rows.Err()
-	}
-
-	values, err := scn(r.rows.Scan)
+	err := r.rows.Scan(dest...)
 	if err != nil {
 		errorf("%s", err)
 		return nil, err
@@ -89,28 +80,7 @@ func (r *Rows) FetchOne(scn Scanner) (Row, error) {
 
 	ret := make(Row)
 	for i, column := range r.columns {
-		ret[column] = values[i]
+		ret[column] = dest[i]
 	}
 	return ret, nil
-}
-
-// FetchAll fetchs all the rows and close the Rows.
-// It returns the error, if any, that was encountered during iteration.
-func (r *Rows) Fetch(scn Scanner) ([]Row, error) {
-	if scn == nil {
-		return nil, errScannerIsNil
-	}
-
-	defer r.Close()
-	rets := make([]Row, 0)
-	for {
-		row, err := r.FetchOne(scn)
-		if err != nil {
-			return nil, err
-		} else if row == nil { // done
-			return rets, nil
-		}
-		rets = append(rets, row)
-	}
-	panic("unreachable")
 }

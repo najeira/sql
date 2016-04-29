@@ -25,22 +25,21 @@ func main() {
     defer res.Close()
     
     // fetch
-    rows, err := res.Fetch(func(s sql.Scan){
+    rows := make([]sql.Row)
+    for res.Next() {
         var id sql.NullInt64
         var name sql.NullString
-        
-        err := s.Scan(&id, &name)
+        row, err := res.Scan(&id, &name)
         if err != nil {
             return nil, err
         }
-        
-        return []interface{&id, &name}, nil
-    })
-    if err != nil {
+        rows = append(rows, row)
+    }
+    if err := res.Err(); err != nil {
         panic(err)
     }
     
-    // rows is []sql.Row
+    // use rows
     for _, row := range rows {
         // sql.Row has methods to get value by name
         fmt.Printf("id=%d, name=%s",

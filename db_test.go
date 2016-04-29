@@ -9,10 +9,10 @@ import (
 func TestDB(t *testing.T) {
 	db, err := Open("ramsql", "TestLoadUserAddresses")
 	if err != nil {
-		t.Fatalf("Open: error %v", err)
+		t.Errorf("Open: error %v", err)
 	}
 	if db == nil {
-		t.Fatalf("Open: nil")
+		t.Errorf("Open: nil")
 	}
 	db.Close()
 }
@@ -20,7 +20,7 @@ func TestDB(t *testing.T) {
 func TestSession(t *testing.T) {
 	db, err := Open("ramsql", "TestLoadUserAddresses")
 	if err != nil {
-		t.Fatalf("Open: error %v", err)
+		t.Errorf("Open: error %v", err)
 	}
 	defer db.Close()
 
@@ -31,7 +31,7 @@ func TestSession(t *testing.T) {
 	q = "CREATE TABLE user (id INT PRIMARY KEY AUTOINCREMENT, name TEXT, age INT);"
 	res, err = db.Exec(q)
 	if err != nil {
-		t.Fatalf("Session.Exec: %s error %v", q, err)
+		t.Errorf("Session.Exec: %s error %v", q, err)
 	}
 	if res.LastInsertId != 0 {
 		t.Errorf("Session.Exec: LastInsertId %d", res.LastInsertId)
@@ -43,7 +43,7 @@ func TestSession(t *testing.T) {
 	q = "INSERT INTO user (name, age) VALUES ('Akihabara', 32);"
 	res, err = db.Exec(q)
 	if err != nil {
-		t.Fatalf("Session.Exec: %s error %v", q, err)
+		t.Errorf("Session.Exec: %s error %v", q, err)
 	}
 	if res.LastInsertId == 0 {
 		t.Errorf("Session.Exec: LastInsertId %d", res.LastInsertId)
@@ -61,53 +61,47 @@ func TestSession(t *testing.T) {
 		q = "INSERT INTO user (name, age) VALUES (?, ?);"
 		res, err = db.Exec(q, name, age)
 		if err != nil {
-			t.Fatalf("Session.Exec: %s error %v", q, err)
+			t.Errorf("Session.Exec: %s error %v", q, err)
 		}
 	}
 
 	q = "SELECT id, name, age FROM user WHERE age = ?;"
 	rows, err = db.Query(q, 32)
 	if err != nil {
-		t.Fatalf("Session.Query: %s error %v", q, err)
+		t.Errorf("Session.Query: %s error %v", q, err)
 	}
 	if rows == nil {
-		t.Fatalf("Session.Query: %s nil", q)
+		t.Errorf("Session.Query: %s nil", q)
 	}
 	defer rows.Close()
 
-	scn := func(sc Scan) ([]interface{}, error) {
-		id := &NullInt64{}
-		name := &NullString{}
-		age := &NullInt64{}
-		err := sc(id, name, age)
+	if rows.Next() {
+		var id NullInt64
+		var name NullString
+		var age NullInt64
+		row, err := rows.Fetch(&id, &name, &age)
 		if err != nil {
-			return nil, err
+			t.Errorf("Rows.Fetch: error %v", err)
 		}
-		return []interface{}{id, name, age}, nil
+		if row == nil {
+			t.Errorf("Rows.Fetch: nil")
+		}
+		if row.Int("id") != 1 {
+			t.Errorf("Row.String: expected 1, got %d", row.Int("id"))
+		}
+		if row.String("name") != "Akihabara" {
+			t.Errorf("Row.String: expected Akihabara, got %s", row.String("name"))
+		}
+		if row.Int("age") != 32 {
+			t.Errorf("Row.String: expected 32, got %d", row.Int("age"))
+		}
 	}
 
-	row, err := rows.FetchOne(scn)
-	if err != nil {
-		t.Fatalf("Rows.FetchOne: error %v", err)
+	if rows.Next() {
+		t.Errorf("Rows.Next: not false")
 	}
-	if row == nil {
-		t.Fatalf("Rows.FetchOne: nil")
-	}
-	if row.Int("id") != 1 {
-		t.Errorf("Row.String: expected 1, got %d", row.Int("id"))
-	}
-	if row.String("name") != "Akihabara" {
-		t.Errorf("Row.String: expected Akihabara, got %s", row.String("name"))
-	}
-	if row.Int("age") != 32 {
-		t.Errorf("Row.String: expected 32, got %d", row.Int("age"))
-	}
-
-	row, err = rows.FetchOne(scn)
-	if err != nil {
-		t.Fatalf("Rows.FetchOne: error %v", err)
-	}
-	if row != nil {
-		t.Fatalf("Rows.FetchOne: %v", row)
+	
+	if err := rows.Err(); err != nil {
+		t.Errorf("Rows.Err: error %v", err)
 	}
 }

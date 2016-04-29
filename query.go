@@ -5,12 +5,6 @@ import (
 	"time"
 )
 
-// Scan copies the columns in the current row into the arguments.
-type Scan func(...interface{}) error
-
-// Scanner returns the columns in the current row.
-type Scanner func(Scan) ([]interface{}, error)
-
 type Result struct {
 	LastInsertId int64
 	RowsAffected int64
