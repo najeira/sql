@@ -7,9 +7,7 @@ import (
 // Session is a database handle.
 type Session interface {
 	Query(q string, args ...interface{}) (*Rows, error)
-	QueryAsync(q string, args ...interface{}) <-chan AsyncRows
 	Exec(q string, args ...interface{}) (Result, error)
-	ExecAsync(q string, args ...interface{}) <-chan AsyncResult
 	Begin() (Session, error)
 	Commit() error
 	Rollback() error
@@ -41,22 +39,10 @@ func (d *DB) Query(q string, args ...interface{}) (*Rows, error) {
 	return sqlQuery(d.DB, q, args...)
 }
 
-// QueryAsync executes asynchronously a query that returns rows, typically a SELECT.
-// The args are for any placeholder parameters in the query.
-func (d *DB) QueryAsync(q string, args ...interface{}) <-chan AsyncRows {
-	return sqlQueryAsync(d.DB, q, args...)
-}
-
 // Exec executes a query without returning any rows.
 // The args are for any placeholder parameters in the query.
 func (d *DB) Exec(q string, args ...interface{}) (Result, error) {
 	return sqlExec(d.DB, q, args...)
-}
-
-// ExecAsync executes asynchronously a query without returning any rows.
-// The args are for any placeholder parameters in the query.
-func (d *DB) ExecAsync(q string, args ...interface{}) <-chan AsyncResult {
-	return sqlExecAsync(d.DB, q, args...)
 }
 
 // Begin starts a transaction.

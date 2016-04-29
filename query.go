@@ -11,20 +11,9 @@ type Scan func(...interface{}) error
 // Scanner returns the columns in the current row.
 type Scanner func(Scan) ([]interface{}, error)
 
-type AsyncRows struct {
-	Rows *Rows
-	Err  error
-}
-
 type Result struct {
 	LastInsertId int64
 	RowsAffected int64
-}
-
-type AsyncResult struct {
-	LastInsertId int64
-	RowsAffected int64
-	Err          error
 }
 
 type querier interface {
@@ -54,15 +43,6 @@ func sqlQuery(svc querier, q string, args ...interface{}) (*Rows, error) {
 	}
 
 	return getRowsForSqlRows(rows)
-}
-
-func sqlQueryAsync(svc querier, q string, args ...interface{}) <-chan AsyncRows {
-	ch := make(chan AsyncRows, 1)
-	go func() {
-		rows, err := sqlQuery(svc, q, args...)
-		ch <- AsyncRows{Rows: rows, Err: err}
-	}()
-	return ch
 }
 
 func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
@@ -99,19 +79,6 @@ func sqlExec(svc executor, q string, args ...interface{}) (Result, error) {
 	eres.LastInsertId = i
 	eres.RowsAffected = n
 	return eres, nil
-}
-
-func sqlExecAsync(svc executor, q string, args ...interface{}) <-chan AsyncResult {
-	ch := make(chan AsyncResult, 1)
-	go func() {
-		res, err := sqlExec(svc, q, args...)
-		ch <- AsyncResult{
-			LastInsertId: res.LastInsertId,
-			RowsAffected: res.RowsAffected,
-			Err:          err,
-		}
-	}()
-	return ch
 }
 
 func flattenArgs(args ...interface{}) []interface{} {

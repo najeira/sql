@@ -23,22 +23,10 @@ func (t *Tx) Query(q string, args ...interface{}) (*Rows, error) {
 	return sqlQuery(t.tx, q, args...)
 }
 
-// QueryAsync executes asynchronously a query that returns rows, typically a SELECT.
-// The args are for any placeholder parameters in the query.
-func (t *Tx) QueryAsync(q string, args ...interface{}) <-chan AsyncRows {
-	return sqlQueryAsync(t.tx, q, args...)
-}
-
 // Exec executes a query without returning any rows.
 // The args are for any placeholder parameters in the query.
 func (t *Tx) Exec(q string, args ...interface{}) (Result, error) {
 	return sqlExec(t.tx, q, args...)
-}
-
-// ExecAsync executes asynchronously a query without returning any rows.
-// The args are for any placeholder parameters in the query.
-func (t *Tx) ExecAsync(q string, args ...interface{}) <-chan AsyncResult {
-	return sqlExecAsync(t.tx, q, args...)
 }
 
 // Begin starts a transaction.
