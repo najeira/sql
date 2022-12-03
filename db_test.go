@@ -1,107 +1,219 @@
-package sql
+package sql_test
 
 import (
+	"context"
 	"testing"
 
-	_ "github.com/proullon/ramsql/driver"
+	"github.com/DATA-DOG/go-sqlmock"
+
+	"github.com/najeira/sql"
 )
 
-func TestDB(t *testing.T) {
-	db, err := Open("ramsql", "TestLoadUserAddresses")
+func TestNew(t *testing.T) {
+	d, _, err := sqlmock.New()
 	if err != nil {
-		t.Errorf("Open: error %v", err)
+		t.Fatal(err)
 	}
+	defer d.Close()
+
+	db := sql.New(d, sql.Config{
+		User:            "user",
+		Passwd:          "password",
+		ServerName:      "localhost:3306",
+		DBName:          "mydb",
+		MaxOpenConns:    0,
+		MaxIdleConns:    0,
+		ConnMaxLifetime: 0,
+	})
 	if db == nil {
-		t.Errorf("Open: nil")
+		t.Error("nil")
 	}
-	db.Close()
 }
 
-func TestSession(t *testing.T) {
-	db, err := Open("ramsql", "TestLoadUserAddresses")
+func TestDB_Get(t *testing.T) {
+	d, mock, err := sqlmock.New()
 	if err != nil {
-		t.Errorf("Open: error %v", err)
+		t.Fatal(err)
 	}
-	defer db.Close()
+	defer d.Close()
 
-	var q string
-	var res Result
-	var rows *Rows
+	ctx := context.Background()
+	db := sql.New(d, sql.Config{})
 
-	q = "CREATE TABLE user (id INT PRIMARY KEY AUTOINCREMENT, name TEXT, age INT);"
-	res, err = db.Exec(q)
+	q := "SELECT id, name FROM users WHERE id = 1"
+	mock.ExpectQuery(q).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name",
+		}).AddRow(1, "Taro"))
+
+	var user struct {
+		ID   int64  `db:"id"`
+		Name string `db:"name"`
+	}
+	if err := db.Get(ctx, &user, q); err != nil {
+		t.Fatal(err)
+	}
+	if user.ID != 1 {
+		t.Error("invalid ID")
+	}
+	if user.Name != "Taro" {
+		t.Error("invalid name")
+	}
+}
+
+func TestDB_Select(t *testing.T) {
+	d, mock, err := sqlmock.New()
 	if err != nil {
-		t.Errorf("Session.Exec: %s error %v", q, err)
+		t.Fatal(err)
 	}
-	if res.LastInsertId != 0 {
-		t.Errorf("Session.Exec: LastInsertId %d", res.LastInsertId)
-	}
-	if res.RowsAffected != 1 {
-		t.Errorf("Session.Exec: RowsAffected %d", res.RowsAffected)
-	}
+	defer d.Close()
 
-	q = "INSERT INTO user (name, age) VALUES ('Akihabara', 32);"
-	res, err = db.Exec(q)
+	ctx := context.Background()
+	db := sql.New(d, sql.Config{})
+
+	q := "SELECT id, name FROM users WHERE id = 1"
+	mock.ExpectQuery(q).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name",
+		}).AddRow(1, "Taro"))
+
+	var users []struct {
+		ID   int64  `db:"id"`
+		Name string `db:"name"`
+	}
+	err = db.Select(ctx, &users, q)
 	if err != nil {
-		t.Errorf("Session.Exec: %s error %v", q, err)
+		t.Fatal(err)
 	}
-	if res.LastInsertId == 0 {
-		t.Errorf("Session.Exec: LastInsertId %d", res.LastInsertId)
+	if len(users) != 1 {
+		t.Fatal("invalid rows")
 	}
-	if res.RowsAffected != 1 {
-		t.Errorf("Session.Exec: RowsAffected %d", res.RowsAffected)
+	if users[0].ID != 1 {
+		t.Error("invalid ID")
 	}
+	if users[0].Name != "Taro" {
+		t.Error("invalid name")
+	}
+}
 
-	users := map[string]int{
-		"Iidabashi":   23,
-		"Ueno":        23,
-		"Okachimachi": 31,
-	}
-	for name, age := range users {
-		q = "INSERT INTO user (name, age) VALUES (?, ?);"
-		res, err = db.Exec(q, name, age)
-		if err != nil {
-			t.Errorf("Session.Exec: %s error %v", q, err)
-		}
-	}
-
-	q = "SELECT id, name, age FROM user WHERE age = ?;"
-	rows, err = db.Query(q, 32)
+func TestDB_Exec(t *testing.T) {
+	d, mock, err := sqlmock.New()
 	if err != nil {
-		t.Errorf("Session.Query: %s error %v", q, err)
+		t.Fatal(err)
 	}
-	if rows == nil {
-		t.Errorf("Session.Query: %s nil", q)
+	defer d.Close()
+
+	ctx := context.Background()
+	db := sql.New(d, sql.Config{})
+
+	q := "UPDATE user SET name = ? WHERE id = ?"
+	mock.ExpectExec("UPDATE").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	res, err := db.Exec(ctx, q, "Tarou", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		t.Error(err)
+	}
+	if id != 0 {
+		t.Error("invalid LastInsertId")
+	}
+
+	num, err := res.RowsAffected()
+	if err != nil {
+		t.Error(err)
+	}
+	if num != 1 {
+		t.Error("invalid RowsAffected")
+	}
+}
+
+func TestDB_Query(t *testing.T) {
+	d, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	ctx := context.Background()
+	db := sql.New(d, sql.Config{})
+
+	q := "SELECT id, name FROM users WHERE id = 1"
+	mock.ExpectQuery(q).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name",
+		}).AddRow(1, "Taro"))
+
+	rows, err := db.Query(ctx, q)
+	if err != nil {
+		t.Error(err)
 	}
 	defer rows.Close()
-
-	if rows.Next() {
-		var id NullInt64
-		var name NullString
-		var age NullInt64
-		row, err := rows.Fetch(&id, &name, &age)
+	for rows.Next() {
+		var user struct {
+			ID   int64  `db:"id"`
+			Name string `db:"name"`
+		}
+		err := rows.Scan(&user.ID, &user.Name)
 		if err != nil {
-			t.Errorf("Rows.Fetch: error %v", err)
+			t.Error(err)
 		}
-		if row == nil {
-			t.Errorf("Rows.Fetch: nil")
+		if user.ID != 1 {
+			t.Error("invalid ID")
 		}
-		if row.Int("id") != 1 {
-			t.Errorf("Row.String: expected 1, got %d", row.Int("id"))
+		if user.Name != "Taro" {
+			t.Error("invalid name")
 		}
-		if row.String("name") != "Akihabara" {
-			t.Errorf("Row.String: expected Akihabara, got %s", row.String("name"))
-		}
-		if row.Int("age") != 32 {
-			t.Errorf("Row.String: expected 32, got %d", row.Int("age"))
-		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDB_HooksSelect(t *testing.T) {
+	d, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	ctx := context.Background()
+	db := sql.New(d, sql.Config{})
+
+	var pre string
+	var post string
+	db.Hooks(&sql.Hooks{
+		PreSelect: func(ctx context.Context, dest interface{}, query string, args []interface{}) (context.Context, error) {
+			pre = query
+			return ctx, nil
+		},
+		PostSelect: func(ctx context.Context, dest interface{}, query string, args []interface{}, err error) {
+			post = query
+		},
+	})
+
+	q := "SELECT id, name FROM users WHERE id = 1"
+	mock.ExpectQuery(q).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name",
+		}).AddRow(1, "Taro"))
+
+	var user struct {
+		ID   int64  `db:"id"`
+		Name string `db:"name"`
+	}
+	if err := db.Get(ctx, &user, q); err != nil {
+		t.Fatal(err)
 	}
 
-	if rows.Next() {
-		t.Errorf("Rows.Next: not false")
+	if q != pre {
+		t.Error(pre, q)
 	}
-	
-	if err := rows.Err(); err != nil {
-		t.Errorf("Rows.Err: error %v", err)
+	if q != post {
+		t.Error(pre, q)
 	}
 }
