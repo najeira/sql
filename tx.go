@@ -1,75 +1,67 @@
 package sql
 
 import (
+	"context"
 	"database/sql"
-	"errors"
+	"fmt"
+
+	"github.com/jmoiron/sqlx"
 )
 
-var (
-	errSesionClosed = errors.New("sql: Session is closed")
-)
-
-// Tx is a database handle.
 type Tx struct {
-	tx  *sql.Tx
-	cnt int
+	tx    *sqlx.Tx
+	hooks *Hooks
 }
 
-var _ Session = (*Tx)(nil)
-
-// Query executes a query that returns rows, typically a SELECT.
-// The args are for any placeholder parameters in the query.
-func (t *Tx) Query(q string, args ...interface{}) (*Rows, error) {
-	return sqlQuery(t.tx, q, args...)
+func (tx *Tx) Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+	return doGet(tx.tx, tx.hooks, ctx, dest, query, args)
 }
 
-// Exec executes a query without returning any rows.
-// The args are for any placeholder parameters in the query.
-func (t *Tx) Exec(q string, args ...interface{}) (Result, error) {
-	return sqlExec(t.tx, q, args...)
+func (tx *Tx) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+	return doSelect(tx.tx, tx.hooks, ctx, dest, query, args)
 }
 
-// Begin starts a transaction.
-func (t *Tx) Begin() (Session, error) {
-	// return self because already in transaction
-	t.cnt += 1
-	return t, nil
+func (tx *Tx) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return doExec(tx.tx, tx.hooks, ctx, query, args)
 }
 
-// Commit commits the transaction if the session is for transaction.
-func (t *Tx) Commit() error {
-	if t.cnt > 0 {
-		t.cnt -= 1
-		return nil
-	}
-
-	err := t.tx.Commit()
-	if err != nil {
-		metrics.MarkCommit()
-	}
-	return err
+func (tx *Tx) Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	return doQuery(tx.tx, tx.hooks, ctx, query, args)
 }
 
-// Rollback aborts the transaction if the session is for transaction.
-func (t *Tx) Rollback() error {
-	if t.cnt > 0 {
-		t.cnt -= 1
-		return nil
-	}
-
-	err := t.tx.Rollback()
-	if err != nil {
-		metrics.MarkRollback()
-	}
-	return err
-}
-
-// RunInTx runs the function in a transaction.
-func (t *Tx) RunInTx(f func(Session) error) error {
-	return f(t)
-}
-
-// IsTx returns true if the session for transaction, otherwise false.
-func (t *Tx) IsTx() bool {
+func (tx *Tx) InTx() bool {
 	return true
+}
+
+// DBのRunInTxでBeginされているので
+// TxのRunInTxは渡された関数をそのまま実行するだけでよい
+func (tx *Tx) RunInTx(ctx context.Context, p Processor) error {
+	return p(ctx, tx)
+}
+
+// DBのRunInTxから呼び出される
+func (tx *Tx) runInTx(ctx context.Context, p Processor) (err error) {
+	defer func() {
+		// panicはエラーに変換する
+		if p := recover(); p != nil {
+			if perr, ok := p.(error); ok {
+				err = perr
+			} else {
+				err = fmt.Errorf("%v", p)
+			}
+		}
+
+		if err != nil {
+			// err時はロールバックする
+			// ロールバックの失敗は回復できないのでそのまま進む
+			// セッションが切れるとロールバックされる
+			// Rollbackの結果ではなくもとのerrorを返す
+			_ = doRollback(tx.tx.Tx, tx.hooks, ctx)
+		} else {
+			err = doCommit(tx.tx.Tx, tx.hooks, ctx)
+		}
+	}()
+
+	err = p(ctx, tx)
+	return
 }

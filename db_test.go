@@ -1,107 +1,178 @@
-package sql
+package sql_test
 
 import (
+	"context"
 	"testing"
 
-	_ "github.com/proullon/ramsql/driver"
+	"github.com/mattn/go-gimei"
+	"github.com/najeira/sql"
 )
 
-func TestDB(t *testing.T) {
-	db, err := Open("ramsql", "TestLoadUserAddresses")
-	if err != nil {
-		t.Errorf("Open: error %v", err)
-	}
-	if db == nil {
-		t.Errorf("Open: nil")
-	}
-	db.Close()
+const (
+	createTable = "CREATE TABLE IF NOT EXISTS `user` (" +
+		"  `id` bigint(20) NOT NULL AUTO_INCREMENT," +
+		"  `name` text," +
+		"  PRIMARY KEY (`id`)" +
+		") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+)
+
+type user struct {
+	ID   int64  `db:"id"`
+	Name string `db:"name"`
 }
 
-func TestSession(t *testing.T) {
-	db, err := Open("ramsql", "TestLoadUserAddresses")
+func open() (*sql.DB, error) {
+	return sql.Open(sql.Config{
+		User:            "sqltest",
+		Passwd:          "testsql",
+		ServerName:      "localhost:3306",
+		DBName:          "sqltest",
+		MaxOpenConns:    0,
+		MaxIdleConns:    0,
+		ConnMaxLifetime: 0,
+	})
+}
+
+func TestOpen(t *testing.T) {
+	ctx := context.Background()
+	db, err := open()
 	if err != nil {
-		t.Errorf("Open: error %v", err)
+		t.Fatal(err)
+	} else if db == nil {
+		t.Fatal("nil")
 	}
-	defer db.Close()
 
-	var q string
-	var res Result
-	var rows *Rows
-
-	q = "CREATE TABLE user (id INT PRIMARY KEY AUTOINCREMENT, name TEXT, age INT);"
-	res, err = db.Exec(q)
+	res, err := db.Exec(ctx, createTable)
 	if err != nil {
-		t.Errorf("Session.Exec: %s error %v", q, err)
+		t.Error(err)
+	} else if res == nil {
+		t.Error("nil")
 	}
-	if res.LastInsertId != 0 {
-		t.Errorf("Session.Exec: LastInsertId %d", res.LastInsertId)
-	}
-	if res.RowsAffected != 1 {
-		t.Errorf("Session.Exec: RowsAffected %d", res.RowsAffected)
-	}
+}
 
-	q = "INSERT INTO user (name, age) VALUES ('Akihabara', 32);"
-	res, err = db.Exec(q)
+func TestQueryer(t *testing.T) {
+	ctx := context.Background()
+	db, err := open()
 	if err != nil {
-		t.Errorf("Session.Exec: %s error %v", q, err)
-	}
-	if res.LastInsertId == 0 {
-		t.Errorf("Session.Exec: LastInsertId %d", res.LastInsertId)
-	}
-	if res.RowsAffected != 1 {
-		t.Errorf("Session.Exec: RowsAffected %d", res.RowsAffected)
+		t.Fatal(err)
+	} else if db == nil {
+		t.Fatal("nil")
 	}
 
-	users := map[string]int{
-		"Iidabashi":   23,
-		"Ueno":        23,
-		"Okachimachi": 31,
-	}
-	for name, age := range users {
-		q = "INSERT INTO user (name, age) VALUES (?, ?);"
-		res, err = db.Exec(q, name, age)
+	name := gimei.NewName()
+
+	var id int64
+	t.Run("insert", func(t *testing.T) {
+		q := "insert into `user` (name) values (?)"
+		res, err := db.Exec(ctx, q, name.String())
 		if err != nil {
-			t.Errorf("Session.Exec: %s error %v", q, err)
+			t.Fatal(err)
 		}
-	}
 
-	q = "SELECT id, name, age FROM user WHERE age = ?;"
-	rows, err = db.Query(q, 32)
-	if err != nil {
-		t.Errorf("Session.Query: %s error %v", q, err)
-	}
-	if rows == nil {
-		t.Errorf("Session.Query: %s nil", q)
-	}
-	defer rows.Close()
-
-	if rows.Next() {
-		var id NullInt64
-		var name NullString
-		var age NullInt64
-		row, err := rows.Fetch(&id, &name, &age)
+		id_, err := res.LastInsertId()
 		if err != nil {
-			t.Errorf("Rows.Fetch: error %v", err)
+			t.Error(err)
 		}
-		if row == nil {
-			t.Errorf("Rows.Fetch: nil")
+		id = id_
+	})
+
+	t.Run("get", func(t *testing.T) {
+		q := "select id, name from `user` where id = ?"
+		var row user
+		if err := db.Get(ctx, &row, q, id); err != nil {
+			t.Fatal(err)
 		}
-		if row.Int("id") != 1 {
-			t.Errorf("Row.String: expected 1, got %d", row.Int("id"))
+
+		if row.ID != id {
+			t.Error("invalid id", row.ID)
 		}
-		if row.String("name") != "Akihabara" {
-			t.Errorf("Row.String: expected Akihabara, got %s", row.String("name"))
+		if row.Name != name.String() {
+			t.Error("invalid name", row.Name)
 		}
-		if row.Int("age") != 32 {
-			t.Errorf("Row.String: expected 32, got %d", row.Int("age"))
+	})
+
+	t.Run("update", func(t *testing.T) {
+		q := "update `user` set name = ? where id = ?"
+		res, err := db.Exec(ctx, q, name.Hiragana(), id)
+		if err != nil {
+			t.Fatal(err)
 		}
+
+		n, err := res.RowsAffected()
+		if err != nil {
+			t.Error(err)
+		} else if n != 1 {
+			t.Error("invalid RowsAffected")
+		}
+	})
+
+	t.Run("select", func(t *testing.T) {
+		q := "select id, name from `user` where id = ?"
+		var rows []*user
+		if err := db.Select(ctx, &rows, q, id); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(rows) != 1 {
+			t.Error("invalid rows")
+		} else {
+			row := rows[0]
+			if row.ID != id {
+				t.Error("invalid id", row.ID)
+			}
+			if row.Name != name.Hiragana() {
+				t.Error("invalid name", row.Name)
+			}
+		}
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		q := "delete from `user` where id = ?"
+		res, err := db.Exec(ctx, q, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		n, err := res.RowsAffected()
+		if err != nil {
+			t.Error(err)
+		} else if n != 1 {
+			t.Error("invalid RowsAffected")
+		}
+	})
+}
+
+func TestHooksSelect(t *testing.T) {
+	ctx := context.Background()
+	db, err := open()
+	if err != nil {
+		t.Fatal(err)
+	} else if db == nil {
+		t.Fatal("nil")
 	}
 
-	if rows.Next() {
-		t.Errorf("Rows.Next: not false")
+	var pre string
+	var post string
+	db.Hooks(&sql.Hooks{
+		PreSelect: func(ctx context.Context, dest interface{}, query string, args []interface{}) (context.Context, error) {
+			pre = query
+			return ctx, nil
+		},
+		PostSelect: func(ctx context.Context, dest interface{}, query string, args []interface{}, err error) {
+			post = query
+		},
+	})
+
+	q := "select id, name from `user`"
+	var rows []*user
+	if err := db.Select(ctx, &rows, q); err != nil {
+		t.Fatal(err)
 	}
-	
-	if err := rows.Err(); err != nil {
-		t.Errorf("Rows.Err: error %v", err)
+
+	if q != pre {
+		t.Error(pre, q)
+	}
+	if q != post {
+		t.Error(pre, q)
 	}
 }
