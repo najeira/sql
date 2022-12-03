@@ -26,6 +26,14 @@ func RowsAffected(i interface{}) int {
 		return 0
 	}
 
+	return destCount(i)
+}
+
+func destCount(i interface{}) int {
+	if i == nil {
+		return 0
+	}
+
 	// nolint:exhaustive
 	switch i.(type) {
 	case []byte, *[]byte, string, *string:

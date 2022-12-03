@@ -79,6 +79,7 @@ func (db *DB) RunInTx(ctx context.Context, p Processor) error {
 	}
 
 	txx, err := db.db.BeginTxx(ctx, nil)
+	metrics.MarkBegin()
 	db.hooks.postBegin(ctx, err)
 	if err != nil {
 		return err
@@ -104,6 +105,11 @@ func (db *DB) Conn(ctx context.Context) (*Conn, error) {
 		conn:  conn,
 		hooks: db.hooks,
 	}, nil
+}
+
+func (db *DB) MarkStats() {
+	s := db.db.Stats()
+	metrics.MarkConnections(s.OpenConnections)
 }
 
 func maxOpenConns(value int) int {

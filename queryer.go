@@ -29,6 +29,7 @@ func doGet(q queryer, h *Hooks, ctx context.Context, dest interface{}, query str
 		return err
 	}
 	err = q.GetContext(ctx, dest, query, args...)
+	metrics.MarkGet(err)
 	h.postSelect(ctx, dest, query, args, err)
 	return err
 }
@@ -39,6 +40,7 @@ func doSelect(q queryer, h *Hooks, ctx context.Context, dest interface{}, query 
 		return err
 	}
 	err = q.SelectContext(ctx, dest, query, args...)
+	metrics.MarkSelect(dest, err)
 	h.postSelect(ctx, dest, query, args, err)
 	return err
 }
@@ -50,6 +52,7 @@ func doExec(q queryer, h *Hooks, ctx context.Context, query string, args []inter
 		return nil, err
 	}
 	result, err := q.ExecContext(ctx, query, args...)
+	metrics.MarkResult(result, err)
 	h.postExec(ctx, query, args, result, err)
 	return result, err
 }
@@ -60,6 +63,7 @@ func doQuery(q queryer, h *Hooks, ctx context.Context, query string, args []inte
 		return nil, err
 	}
 	rows, err := q.QueryContext(ctx, query, args...)
+	metrics.MarkQuery()
 	h.postQuery(ctx, query, args, rows, err)
 	return rows, err
 }
@@ -74,6 +78,7 @@ func doCommit(tx *sql.Tx, h *Hooks, ctx context.Context) error {
 		err = nil
 	}
 
+	metrics.MarkCommit()
 	h.postCommit(ctx, err)
 	return err
 }
@@ -88,6 +93,7 @@ func doRollback(tx *sql.Tx, h *Hooks, ctx context.Context) error {
 		err = nil
 	}
 
+	metrics.MarkRollback()
 	h.postRollback(ctx, err)
 	return err
 }

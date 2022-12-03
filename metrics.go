@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"database/sql"
 	"sync"
 	"time"
 
@@ -49,17 +50,33 @@ func (m *metricsDB) MarkQuery() {
 	m.queries.Mark(1)
 }
 
-func (m *metricsDB) MarkExecute() {
-	m.executes.Mark(1)
-}
-
-func (m *metricsDB) MarkRow() {
+func (m *metricsDB) MarkGet(err error) {
+	m.queries.Mark(1)
+	if err != nil {
+		return
+	}
 	m.rows.Mark(1)
 }
 
-func (m *metricsDB) MarkAffects(v int64) {
-	if v != 0 {
-		m.affects.Mark(v)
+func (m *metricsDB) MarkSelect(dest interface{}, err error) {
+	m.queries.Mark(1)
+	if err != nil {
+		return
+	}
+	if n := destCount(dest); n > 0 {
+		m.rows.Mark(int64(n))
+	}
+}
+
+func (m *metricsDB) MarkResult(res sql.Result, err error) {
+	m.executes.Mark(1)
+	if err != nil {
+		return
+	}
+	if res != nil {
+		if n, _ := res.RowsAffected(); n > 0 {
+			m.affects.Mark(n)
+		}
 	}
 }
 
