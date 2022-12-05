@@ -7,7 +7,6 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/mattn/go-gimei v0.0.3
-	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 )
 
 require (
