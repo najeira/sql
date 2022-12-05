@@ -19,6 +19,7 @@ func TestDB_RunInTx(t *testing.T) {
 
 	ctx := context.Background()
 	db := sql.New(d, sql.Config{})
+	defer db.Close()
 
 	mock.ExpectBegin()
 

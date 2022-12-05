@@ -8,6 +8,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+var (
+	_ Queryer = (*Tx)(nil)
+)
+
 type Tx struct {
 	tx    *sqlx.Tx
 	hooks *Hooks
