@@ -14,7 +14,7 @@ const (
 	defaultMaxIdleConns    = 30
 	defaultConnMaxLifetime = time.Second * 60
 
-	driverName = "mysql"
+	defaultDriverName      = "mysql"
 )
 
 var (
