@@ -27,7 +27,7 @@ type DB struct {
 }
 
 func Open(cfg Config) (*DB, error) {
-	db, err := sql.Open(driverName, cfg.FormatDSN())
+	db, err := sql.Open(cfg.driverName(), cfg.FormatDSN())
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func Open(cfg Config) (*DB, error) {
 }
 
 func New(db *sql.DB, cfg Config) *DB {
-	dbx := sqlx.NewDb(db, driverName)
+	dbx := sqlx.NewDb(db, cfg.driverName())
 	dbx.SetMaxOpenConns(maxOpenConns(cfg.MaxOpenConns))
 	dbx.SetMaxIdleConns(maxIdleConns(cfg.MaxIdleConns))
 	dbx.SetConnMaxLifetime(connMaxLifetime(cfg.ConnMaxLifetime))
