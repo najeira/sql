@@ -58,6 +58,7 @@ func TestQueryer(t *testing.T) {
 	} else if db == nil {
 		t.Fatal("nil")
 	}
+	defer db.Close()
 
 	name := gimei.NewName()
 
@@ -150,6 +151,7 @@ func TestHooksSelect(t *testing.T) {
 	} else if db == nil {
 		t.Fatal("nil")
 	}
+	defer db.Close()
 
 	var pre string
 	var post string
@@ -174,5 +176,47 @@ func TestHooksSelect(t *testing.T) {
 	}
 	if q != post {
 		t.Error(pre, q)
+	}
+}
+
+func TestMapper(t *testing.T) {
+	ctx := context.Background()
+	db, err := open()
+	if err != nil {
+		t.Fatal(err)
+	} else if db == nil {
+		t.Fatal("nil")
+	}
+	defer db.Close()
+
+	name := gimei.NewName()
+
+	q := "insert into `user` (name) values (?)"
+	res, err := db.Exec(ctx, q, name.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		t.Error(err)
+	}
+
+	db.Mapper("mytag")
+
+	q = "select id, name from `user` where id = ?"
+	var row struct {
+		ID   int64  `mytag:"id"`
+		Name string `mytag:"name"`
+	}
+	if err := db.Get(ctx, &row, q, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if row.ID != id {
+		t.Error("invalid id", row.ID)
+	}
+	if row.Name != name.String() {
+		t.Error("invalid name", row.Name)
 	}
 }
