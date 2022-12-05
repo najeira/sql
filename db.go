@@ -12,8 +12,7 @@ import (
 const (
 	defaultMaxOpenConns    = 30
 	defaultMaxIdleConns    = 30
-	defaultConnMaxLifetime = time.Second * 60
-
+	defaultConnMaxLifetime = time.Minute
 	defaultDriverName      = "mysql"
 )
 
