@@ -7,8 +7,7 @@ import (
 )
 
 type Conn struct {
-	conn  *sqlx.Conn
-	hooks *Hooks
+	conn *sqlx.Conn
 }
 
 func (conn *Conn) Close() error {
@@ -16,7 +15,7 @@ func (conn *Conn) Close() error {
 }
 
 func (conn *Conn) Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	return doGet(conn.conn, conn.hooks, ctx, dest, query, args)
+	return doGet(conn.conn, ctx, dest, query, args)
 }
 
 func (conn *Conn) Ping(ctx context.Context) error {

@@ -1,20 +1,53 @@
-package sql_test
+package sql
 
 import (
-	sqld "database/sql"
+	"errors"
 	"testing"
 
-	"github.com/najeira/sql"
+	"github.com/go-sql-driver/mysql"
 )
 
-func TestErrors(t *testing.T) {
-	if sql.ErrNoRows != sqld.ErrNoRows {
-		t.Error("ErrNoRows")
+func TestErrDuplicateEntry(t *testing.T) {
+	var err error
+	err = MakeErrDuplicateEntry("message")
+	if ret := ErrDuplicateEntry(err); !ret {
+		t.Error("got false")
 	}
-	if sql.ErrConnDone != sqld.ErrConnDone {
-		t.Error("ErrConnDone")
+
+	err = errors.New("message")
+	if ret := ErrDuplicateEntry(err); ret {
+		t.Error("got true")
 	}
-	if sql.ErrTxDone != sqld.ErrTxDone {
-		t.Error("ErrTxDone")
+}
+
+func TestErrForeignKeyConstraint(t *testing.T) {
+	var err error
+	err = &mysql.MySQLError{
+		Number:  1452,
+		Message: "message",
+	}
+	if ret := ErrForeignKeyConstraint(err); !ret {
+		t.Error("got false")
+	}
+
+	err = errors.New("message")
+	if ret := ErrForeignKeyConstraint(err); ret {
+		t.Error("got true")
+	}
+}
+
+func TestErrLockNoWait(t *testing.T) {
+	var err error
+	err = &mysql.MySQLError{
+		Number:  3572,
+		Message: "message",
+	}
+	if ret := ErrLockNoWait(err); !ret {
+		t.Error("got false")
+	}
+
+	err = errors.New("message")
+	if ret := ErrLockNoWait(err); ret {
+		t.Error("got true")
 	}
 }

@@ -1,11 +1,10 @@
-package sql_test
+package sql
 
 import (
 	"context"
 	"testing"
 
 	"github.com/mattn/go-gimei"
-	"github.com/najeira/sql"
 )
 
 const (
@@ -21,8 +20,8 @@ type user struct {
 	Name string `db:"name"`
 }
 
-func open() (*sql.DB, error) {
-	return sql.Open(sql.Config{
+func open() (*DB, error) {
+	return Open(Config{
 		User:            "sqltest",
 		Passwd:          "testsql",
 		ServerName:      "localhost:3306",
@@ -141,42 +140,6 @@ func TestQueryer(t *testing.T) {
 			t.Error("invalid RowsAffected")
 		}
 	})
-}
-
-func TestHooksSelect(t *testing.T) {
-	ctx := context.Background()
-	db, err := open()
-	if err != nil {
-		t.Fatal(err)
-	} else if db == nil {
-		t.Fatal("nil")
-	}
-	defer db.Close()
-
-	var pre string
-	var post string
-	db.Hooks(&sql.Hooks{
-		PreSelect: func(ctx context.Context, dest interface{}, query string, args []interface{}) (context.Context, error) {
-			pre = query
-			return ctx, nil
-		},
-		PostSelect: func(ctx context.Context, dest interface{}, query string, args []interface{}, err error) {
-			post = query
-		},
-	})
-
-	q := "select id, name from `user`"
-	var rows []*user
-	if err := db.Select(ctx, &rows, q); err != nil {
-		t.Fatal(err)
-	}
-
-	if q != pre {
-		t.Error(pre, q)
-	}
-	if q != post {
-		t.Error(pre, q)
-	}
 }
 
 func TestMapper(t *testing.T) {

@@ -1,18 +1,16 @@
-package sql_test
+package sql
 
 import (
 	"testing"
-
-	"github.com/najeira/sql"
 )
 
 func TestConfigFormatDSN(t *testing.T) {
 	var testDSNs = []struct {
-		in  *sql.Config
+		in  *Config
 		out string
 	}{
 		{
-			&sql.Config{
+			&Config{
 				User:       "username",
 				Passwd:     "password",
 				ServerName: "localhost:3306",
@@ -21,7 +19,7 @@ func TestConfigFormatDSN(t *testing.T) {
 			"username:password@tcp(localhost:3306)/mydb?collation=utf8mb4_bin&interpolateParams=true",
 		},
 		{
-			&sql.Config{
+			&Config{
 				User:       "username",
 				Passwd:     "password",
 				ServerName: "/tmp/mysql",

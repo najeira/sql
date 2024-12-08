@@ -7,6 +7,10 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
+const (
+	defaultDriverName = "mysql"
+)
+
 type Config struct {
 	DriverName string
 
@@ -20,7 +24,7 @@ type Config struct {
 	ConnMaxLifetime time.Duration
 }
 
-func (cfg *Config) FormatDSN() string {
+func (cfg Config) FormatDSN() string {
 	net := "tcp"
 	if strings.HasPrefix(cfg.ServerName, "/") {
 		net = "unix"
@@ -36,7 +40,7 @@ func (cfg *Config) FormatDSN() string {
 	return mysqlcfg.FormatDSN()
 }
 
-func (cfg *Config) driverName() string {
+func (cfg Config) driverName() string {
 	if len(cfg.DriverName) > 0 {
 		return cfg.DriverName
 	}
