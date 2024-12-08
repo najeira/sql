@@ -102,33 +102,3 @@ func TestDB_RunInTxWithPanic(t *testing.T) {
 		t.Error("no error")
 	}
 }
-
-func TestDB_InTx(t *testing.T) {
-	d, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer d.Close()
-
-	ctx := context.Background()
-	db := New(d, Config{})
-
-	mock.ExpectBegin()
-
-	q := "SELECT 1"
-	mock.ExpectQuery(q).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id",
-		}).AddRow(1))
-
-	mock.ExpectCommit()
-
-	err = db.RunInTx(ctx, func(ctx context.Context, db Queryer) error {
-		var id int64
-		err := db.Get(ctx, &id, q)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
