@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"time"
@@ -12,22 +13,15 @@ import (
 const (
 	defaultMaxOpenConns    = 30
 	defaultMaxIdleConns    = 30
-	defaultConnMaxLifetime = time.Second * 60
-
-	driverName = "mysql"
-)
-
-var (
-	_ Queryer = (*DB)(nil)
+	defaultConnMaxLifetime = time.Minute
 )
 
 type DB struct {
-	db    *sqlx.DB
-	hooks *Hooks
+	db *sqlx.DB
 }
 
 func Open(cfg Config) (*DB, error) {
-	db, err := sql.Open(driverName, cfg.FormatDSN())
+	db, err := sql.Open(cfg.driverName(), cfg.FormatDSN())
 	if err != nil {
 		return nil, err
 	}
@@ -35,13 +29,11 @@ func Open(cfg Config) (*DB, error) {
 }
 
 func New(db *sql.DB, cfg Config) *DB {
-	dbx := sqlx.NewDb(db, driverName)
-	dbx.SetMaxOpenConns(maxOpenConns(cfg.MaxOpenConns))
-	dbx.SetMaxIdleConns(maxIdleConns(cfg.MaxIdleConns))
-	dbx.SetConnMaxLifetime(connMaxLifetime(cfg.ConnMaxLifetime))
-	return &DB{
-		db: dbx,
-	}
+	dbx := sqlx.NewDb(db, cfg.driverName())
+	dbx.SetMaxOpenConns(velueOrDefault(cfg.MaxOpenConns, defaultMaxOpenConns))
+	dbx.SetMaxIdleConns(velueOrDefault(cfg.MaxIdleConns, defaultMaxIdleConns))
+	dbx.SetConnMaxLifetime(velueOrDefault(cfg.ConnMaxLifetime, defaultConnMaxLifetime))
+	return &DB{db: dbx}
 }
 
 func (db *DB) Close() error {
@@ -52,47 +44,34 @@ func (db *DB) Mapper(name string) {
 	db.db.Mapper = reflectx.NewMapper(name)
 }
 
-func (db *DB) Hooks(hooks *Hooks) {
-	db.hooks = hooks
+func (db *DB) Get(ctx context.Context, dest any, query string, args ...any) error {
+	return doGet(db.db, ctx, dest, query, args)
 }
 
-func (db *DB) Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	return doGet(db.db, db.hooks, ctx, dest, query, args)
+func (db *DB) Select(ctx context.Context, dest any, query string, args ...any) error {
+	return doSelect(db.db, ctx, dest, query, args)
 }
 
-func (db *DB) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	return doSelect(db.db, db.hooks, ctx, dest, query, args)
+func (db *DB) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return doExec(db.db, ctx, query, args)
 }
 
-func (db *DB) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	return doExec(db.db, db.hooks, ctx, query, args)
+func (db *DB) NamedExec(ctx context.Context, query string, arg any) (sql.Result, error) {
+	return doNamedExec(db.db, ctx, query, arg)
 }
 
-func (db *DB) Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	return doQuery(db.db, db.hooks, ctx, query, args)
+func (db *DB) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return doQuery(db.db, ctx, query, args)
 }
 
 func (db *DB) RunInTx(ctx context.Context, p Processor) error {
-	var err error
-	if ctx, err = db.hooks.preBegin(ctx); err != nil {
-		return err
-	}
-
 	txx, err := db.db.BeginTxx(ctx, nil)
-	db.hooks.postBegin(ctx, err)
 	if err != nil {
 		return err
 	}
 
-	tx := &Tx{
-		tx:    txx,
-		hooks: db.hooks,
-	}
+	tx := &Tx{tx: txx}
 	return tx.runInTx(ctx, p)
-}
-
-func (db *DB) InTx() bool {
-	return false
 }
 
 func (db *DB) Conn(ctx context.Context) (*Conn, error) {
@@ -100,29 +79,13 @@ func (db *DB) Conn(ctx context.Context) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Conn{
-		conn:  conn,
-		hooks: db.hooks,
-	}, nil
+	return &Conn{conn: conn}, nil
 }
 
-func maxOpenConns(value int) int {
-	if value > 0 {
+func velueOrDefault[T cmp.Ordered](value, def T) T {
+	var zero T
+	if value > zero {
 		return value
 	}
-	return defaultMaxOpenConns
-}
-
-func maxIdleConns(value int) int {
-	if value > 0 {
-		return value
-	}
-	return defaultMaxIdleConns
-}
-
-func connMaxLifetime(value time.Duration) time.Duration {
-	if value > 0 {
-		return value
-	}
-	return defaultConnMaxLifetime
+	return def
 }

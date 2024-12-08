@@ -1,4 +1,4 @@
-package sql_test
+package sql
 
 import (
 	"context"
@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-
-	"github.com/najeira/sql"
 )
 
 func TestDB_RunInTx(t *testing.T) {
@@ -18,7 +16,7 @@ func TestDB_RunInTx(t *testing.T) {
 	defer d.Close()
 
 	ctx := context.Background()
-	db := sql.New(d, sql.Config{})
+	db := New(d, Config{})
 
 	mock.ExpectBegin()
 
@@ -30,7 +28,7 @@ func TestDB_RunInTx(t *testing.T) {
 
 	mock.ExpectCommit()
 
-	err = db.RunInTx(ctx, func(ctx context.Context, db sql.Queryer) error {
+	err = db.RunInTx(ctx, func(ctx context.Context, db Queryer) error {
 		var id int64
 		err := db.Get(ctx, &id, q)
 		return err
@@ -48,7 +46,7 @@ func TestDB_RunInTxWithError(t *testing.T) {
 	defer d.Close()
 
 	ctx := context.Background()
-	db := sql.New(d, sql.Config{})
+	db := New(d, Config{})
 
 	mock.ExpectBegin()
 
@@ -60,7 +58,7 @@ func TestDB_RunInTxWithError(t *testing.T) {
 
 	mock.ExpectRollback()
 
-	err = db.RunInTx(ctx, func(ctx context.Context, db sql.Queryer) error {
+	err = db.RunInTx(ctx, func(ctx context.Context, db Queryer) error {
 		var id int64
 		if err := db.Get(ctx, &id, q); err != nil {
 			return err
@@ -80,7 +78,7 @@ func TestDB_RunInTxWithPanic(t *testing.T) {
 	defer d.Close()
 
 	ctx := context.Background()
-	db := sql.New(d, sql.Config{})
+	db := New(d, Config{})
 
 	mock.ExpectBegin()
 
@@ -92,7 +90,7 @@ func TestDB_RunInTxWithPanic(t *testing.T) {
 
 	mock.ExpectRollback()
 
-	err = db.RunInTx(ctx, func(ctx context.Context, db sql.Queryer) error {
+	err = db.RunInTx(ctx, func(ctx context.Context, db Queryer) error {
 		var id int64
 		err := db.Get(ctx, &id, q)
 		if err == nil {
@@ -102,38 +100,5 @@ func TestDB_RunInTxWithPanic(t *testing.T) {
 	})
 	if err == nil {
 		t.Error("no error")
-	}
-}
-
-func TestDB_InTx(t *testing.T) {
-	d, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer d.Close()
-
-	ctx := context.Background()
-	db := sql.New(d, sql.Config{})
-
-	mock.ExpectBegin()
-
-	q := "SELECT 1"
-	mock.ExpectQuery(q).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id",
-		}).AddRow(1))
-
-	mock.ExpectCommit()
-
-	err = db.RunInTx(ctx, func(ctx context.Context, db sql.Queryer) error {
-		if !db.InTx() {
-			t.Error("no tx")
-		}
-		var id int64
-		err := db.Get(ctx, &id, q)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 }

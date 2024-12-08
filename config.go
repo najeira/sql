@@ -7,7 +7,13 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
+const (
+	defaultDriverName = "mysql"
+)
+
 type Config struct {
+	DriverName string
+
 	User       string
 	Passwd     string
 	ServerName string
@@ -32,4 +38,11 @@ func (cfg Config) FormatDSN() string {
 	mysqlcfg.Collation = "utf8mb4_bin"
 	mysqlcfg.InterpolateParams = true
 	return mysqlcfg.FormatDSN()
+}
+
+func (cfg Config) driverName() string {
+	if len(cfg.DriverName) > 0 {
+		return cfg.DriverName
+	}
+	return defaultDriverName
 }

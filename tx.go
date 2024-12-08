@@ -4,50 +4,47 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"runtime/debug"
 
 	"github.com/jmoiron/sqlx"
 )
 
+var (
+	_ Queryer = (*Tx)(nil)
+)
+
 type Tx struct {
-	tx    *sqlx.Tx
-	hooks *Hooks
+	tx *sqlx.Tx
 }
 
-func (tx *Tx) Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	return doGet(tx.tx, tx.hooks, ctx, dest, query, args)
+func (tx *Tx) Get(ctx context.Context, dest any, query string, args ...any) error {
+	return doGet(tx.tx, ctx, dest, query, args)
 }
 
-func (tx *Tx) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	return doSelect(tx.tx, tx.hooks, ctx, dest, query, args)
+func (tx *Tx) Select(ctx context.Context, dest any, query string, args ...any) error {
+	return doSelect(tx.tx, ctx, dest, query, args)
 }
 
-func (tx *Tx) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	return doExec(tx.tx, tx.hooks, ctx, query, args)
+func (tx *Tx) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return doExec(tx.tx, ctx, query, args)
 }
 
-func (tx *Tx) Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	return doQuery(tx.tx, tx.hooks, ctx, query, args)
+func (tx *Tx) NamedExec(ctx context.Context, query string, arg any) (sql.Result, error) {
+	return doNamedExec(tx.tx, ctx, query, arg)
 }
 
-func (tx *Tx) InTx() bool {
-	return true
+func (tx *Tx) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return doQuery(tx.tx, ctx, query, args)
 }
 
-// DBのRunInTxでBeginされているので
-// TxのRunInTxは渡された関数をそのまま実行するだけでよい
-func (tx *Tx) RunInTx(ctx context.Context, p Processor) error {
-	return p(ctx, tx)
-}
-
-// DBのRunInTxから呼び出される
 func (tx *Tx) runInTx(ctx context.Context, p Processor) (err error) {
 	defer func() {
 		// panicはエラーに変換する
 		if p := recover(); p != nil {
 			if perr, ok := p.(error); ok {
-				err = perr
+				err = fmt.Errorf("%w\n%s", perr, debug.Stack())
 			} else {
-				err = fmt.Errorf("%v", p)
+				err = fmt.Errorf("%v\n%s", p, debug.Stack())
 			}
 		}
 
@@ -56,9 +53,9 @@ func (tx *Tx) runInTx(ctx context.Context, p Processor) (err error) {
 			// ロールバックの失敗は回復できないのでそのまま進む
 			// セッションが切れるとロールバックされる
 			// Rollbackの結果ではなくもとのerrorを返す
-			_ = doRollback(tx.tx.Tx, tx.hooks, ctx)
+			_ = doRollback(tx.tx.Tx, ctx)
 		} else {
-			err = doCommit(tx.tx.Tx, tx.hooks, ctx)
+			err = doCommit(tx.tx.Tx, ctx)
 		}
 	}()
 
